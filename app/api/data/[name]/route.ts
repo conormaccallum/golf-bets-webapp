@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
 export async function GET(
-  _req: Request,
-  { params }: { params: { name: string } }
+  _req: NextRequest,
+  context: { params: Promise<{ name: string }> }
 ) {
+  const { name } = await context.params;
+
   const base = process.env.OUTPUT_BASE_URL;
   if (!base) {
     return NextResponse.json({ error: "OUTPUT_BASE_URL not set" }, { status: 500 });
@@ -17,7 +20,6 @@ export async function GET(
     "event_meta.json",
   ]);
 
-  const name = params.name;
   if (!allowed.has(name)) {
     return NextResponse.json({ error: "Not allowed" }, { status: 400 });
   }
