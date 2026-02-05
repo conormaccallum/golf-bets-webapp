@@ -2,7 +2,10 @@ import { prisma } from "../../lib/prisma";
 import Link from "next/link";
 
 function sum(nums: Array<number | null | undefined>) {
-  return nums.reduce((a, b) => a + (typeof b === "number" ? b : 0), 0);
+  return nums.reduce<number>(
+    (acc, n) => acc + (typeof n === "number" ? n : 0),
+    0
+  );
 }
 
 export default async function HistoryPage() {
