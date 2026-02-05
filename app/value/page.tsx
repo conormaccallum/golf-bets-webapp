@@ -69,10 +69,25 @@ function transformValueTable(raw: TableData | null, market: Market): TableData |
 
   const idxModelProb =
     market === "top20"
-      ? pickIndex(h, ["top20_prob_model", "p_model", "model_prob", "prob_model", "top20_prob"])
+      ? pickIndex(h, [
+          "top20_prob_model",
+          "top20_prob",
+          "p_top20",
+          "p_model",
+        ])
       : market === "make_cut"
-      ? pickIndex(h, ["make_cut_prob_model", "makecut_prob_model", "p_model", "model_prob", "prob_model"])
-      : pickIndex(h, ["miss_cut_prob_model", "misscut_prob_model", "p_model", "model_prob", "prob_model"]);
+      ? pickIndex(h, [
+          "p_make_cut_model",   // ← your actual column
+          "p_make_cut",
+          "make_cut_prob",
+          "p_model",
+        ])
+      : pickIndex(h, [
+          "p_miss_cut_model",   // ← your actual column
+          "p_miss_cut",
+          "miss_cut_prob",
+          "p_model",
+        ]);
 
   const outHeaders = [
     "Player Name",
