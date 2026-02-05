@@ -159,7 +159,7 @@ export default function ValueScreensPage() {
   return (
     <div style={{ padding: 16 }}>
       <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12 }}>
-        <h2 style={{ margin: 0 }}>Value Screens</h2>
+        <h2 style={{ margin: 0 }}>Value Screens (v26314c5)</h2>
 
         <select
           value={market}
