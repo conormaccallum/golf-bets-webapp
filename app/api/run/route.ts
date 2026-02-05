@@ -3,11 +3,52 @@ import { NextResponse } from "next/server";
 type TableData = { headers: string[]; rows: string[][] };
 
 function parseCsv(text: string): TableData {
-  const lines = text.split(/\r?\n/).filter(l => l.trim().length > 0);
+  const lines = text.split(/\r?\n/).filter(l => l.length > 0);
   if (!lines.length) return { headers: [], rows: [] };
-  const split = (line: string) => line.split(",").map(s => s.trim());
-  const headers = split(lines[0]);
-  const rows = lines.slice(1).map(split);
+
+  const parseLine = (line: string): string[] => {
+    const out: string[] = [];
+    let cur = "";
+    let inQuotes = false;
+
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+
+      if (ch === '"') {
+        // Handle escaped quotes ("")
+        const next = line[i + 1];
+        if (inQuotes && next === '"') {
+          cur += '"';
+          i++; // skip the escaped quote
+        } else {
+          inQuotes = !inQuotes;
+        }
+        continue;
+      }
+
+      if (ch === "," && !inQuotes) {
+        out.push(cur.trim());
+        cur = "";
+        continue;
+      }
+
+      cur += ch;
+    }
+
+    out.push(cur.trim());
+
+    // Remove surrounding quotes if present
+    return out.map(v => {
+      if (v.length >= 2 && v.startsWith('"') && v.endsWith('"')) {
+        return v.slice(1, -1);
+      }
+      return v;
+    });
+  };
+
+  const headers = parseLine(lines[0]);
+  const rows = lines.slice(1).map(parseLine);
+
   return { headers, rows };
 }
 
