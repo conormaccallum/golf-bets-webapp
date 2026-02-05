@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
 type Market = "top20" | "make_cut" | "miss_cut";
 
@@ -43,12 +44,17 @@ function formatEdge(e: number | null): string {
   return `${sign}${pct.toFixed(1)}%`;
 }
 
+function modelProbHeader(market: Market): string {
+  if (market === "top20") return "Model Prob. of Top 20";
+  if (market === "make_cut") return "Model Prob. of Make Cut";
+  return "Model Prob. of Miss Cut";
+}
+
 function transformValueTable(raw: TableData | null, market: Market): TableData | null {
   if (!raw?.headers?.length) return null;
 
   const h = raw.headers;
 
-  // Core columns (robust to header name differences)
   const idxPlayer = pickIndex(h, ["player_name", "player", "name"]);
   const idxDgId = pickIndex(h, ["dg_id", "datagolf_id", "dgid"]);
 
@@ -61,7 +67,6 @@ function transformValueTable(raw: TableData | null, market: Market): TableData |
     "odds",
   ]);
 
-  // Model prob differs by market; fall back to p_model if that’s what your pipeline uses
   const idxModelProb =
     market === "top20"
       ? pickIndex(h, ["top20_prob_model", "p_model", "model_prob", "prob_model", "top20_prob"])
@@ -69,17 +74,10 @@ function transformValueTable(raw: TableData | null, market: Market): TableData |
       ? pickIndex(h, ["make_cut_prob_model", "makecut_prob_model", "p_model", "model_prob", "prob_model"])
       : pickIndex(h, ["miss_cut_prob_model", "misscut_prob_model", "p_model", "model_prob", "prob_model"]);
 
-  const modelHeader =
-    market === "top20"
-      ? "Model Prob. of Top 20"
-      : market === "make_cut"
-      ? "Model Prob. of Make Cut"
-      : "Model Prob. of Miss Cut";
-
   const outHeaders = [
     "Player Name",
     "DataGolf ID",
-    modelHeader,
+    modelProbHeader(market),
     "Implied Prob. from Market Odds",
     "Best Market Odds",
     "Bookmaker",
@@ -97,20 +95,12 @@ function transformValueTable(raw: TableData | null, market: Market): TableData |
     const impliedProb = odds && odds > 0 ? 1 / odds : null;
     const edge = modelProb !== null && impliedProb !== null ? modelProb - impliedProb : null;
 
-    return [
-      player,
-      dgId,
-      formatPct(modelProb),
-      formatPct(impliedProb),
-      formatOdds(odds),
-      book,
-      formatEdge(edge),
-    ];
+    return [player, dgId, formatPct(modelProb), formatPct(impliedProb), formatOdds(odds), book, formatEdge(edge)];
   });
 
-  // Optional: sort by Implied Edge descending (keeps the best at top)
+  // sort by edge desc if edge exists
   outRows.sort((a, b) => {
-    const ea = toNumber(String(a[6]).replace("%", "").replace("+", "")); // edge %
+    const ea = toNumber(String(a[6]).replace("%", "").replace("+", ""));
     const eb = toNumber(String(b[6]).replace("%", "").replace("+", ""));
     if (ea === null && eb === null) return 0;
     if (ea === null) return 1;
@@ -133,7 +123,6 @@ export default function ValueScreensPage() {
     try {
       const res = await fetch("/api/run", { method: "POST" });
       const json = await res.json();
-
       if (!json?.ok) throw new Error(json?.error ?? "API error");
 
       if (market === "top20") setRawTable(json.tables?.top20 ?? null);
@@ -157,70 +146,132 @@ export default function ValueScreensPage() {
   const displayTable = useMemo(() => transformValueTable(rawTable, market), [rawTable, market]);
 
   return (
-    <div style={{ padding: 16 }}>
-      <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12 }}>
-        <h2 style={{ margin: 0 }}>Value Screens (v26314c5)</h2>
+    <div style={{ minHeight: "100vh", background: "#000", fontFamily: "sans-serif", color: "white" }}>
+      {/* NAV */}
+      <header
+        style={{
+          borderBottom: "1px solid #222",
+          padding: "14px 24px",
+          position: "sticky",
+          top: 0,
+          background: "#000",
+          zIndex: 10,
+        }}
+      >
+        <nav style={{ display: "flex", gap: 14, alignItems: "center" }}>
+          <NavLink href="/">Home</NavLink>
+          <NavLink href="/value">Value Screens</NavLink>
+          <NavLink href="/history">History</NavLink>
+        </nav>
+      </header>
 
-        <select
-          value={market}
-          onChange={(e) => setMarket(e.target.value as Market)}
-          style={{ padding: 6 }}
-        >
-          <option value="top20">Top 20</option>
-          <option value="make_cut">Make Cut</option>
-          <option value="miss_cut">Miss Cut</option>
-        </select>
+      <main style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
+        <h1 style={{ marginTop: 0 }}>Value Screens</h1>
 
-        <button onClick={load} disabled={loading} style={{ padding: "6px 10px" }}>
-          {loading ? "Loading..." : "Refresh"}
-        </button>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
+          <select
+            value={market}
+            onChange={(e) => setMarket(e.target.value as Market)}
+            style={{
+              padding: "8px 10px",
+              borderRadius: 10,
+              border: "1px solid #333",
+              background: "#111",
+              color: "white",
+            }}
+          >
+            <option value="top20">Top 20</option>
+            <option value="make_cut">Make Cut</option>
+            <option value="miss_cut">Miss Cut</option>
+          </select>
 
-        <span style={{ color: "#999" }}>{status}</span>
-      </div>
+          <button
+            onClick={load}
+            disabled={loading}
+            style={{
+              padding: "8px 12px",
+              borderRadius: 10,
+              border: "1px solid #333",
+              background: "#111",
+              color: "white",
+              cursor: loading ? "not-allowed" : "pointer",
+            }}
+          >
+            {loading ? "Loading..." : "Refresh"}
+          </button>
 
-      {!displayTable?.headers?.length ? (
-        <div style={{ color: "#bbb" }}>No data loaded.</div>
-      ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ borderCollapse: "collapse", width: "100%" }}>
-            <thead>
-              <tr>
-                {displayTable.headers.map((hh) => (
-                  <th
-                    key={hh}
-                    style={{
-                      textAlign: "left",
-                      borderBottom: "1px solid #333",
-                      padding: "8px 6px",
-                      whiteSpace: "nowrap",
-                    }}
-                  >
-                    {hh}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {displayTable.rows.map((row, i) => (
-                <tr key={i}>
-                  {row.map((cell, j) => (
-                    <td
-                      key={j}
+          <span style={{ color: "#bbb" }}>{status}</span>
+        </div>
+
+        {!displayTable?.headers?.length ? (
+          <div style={{ border: "1px solid #333", borderRadius: 16, padding: 16 }}>
+            <p style={{ margin: 0 }}>No data loaded.</p>
+          </div>
+        ) : (
+          <div style={{ overflowX: "auto", border: "1px solid #333", borderRadius: 14 }}>
+            <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 900 }}>
+              <thead>
+                <tr>
+                  {displayTable.headers.map((hh) => (
+                    <th
+                      key={hh}
                       style={{
-                        borderBottom: "1px solid #222",
-                        padding: "8px 6px",
+                        textAlign: "left",
+                        padding: 10,
+                        borderBottom: "1px solid #333",
+                        background: "#111",
+                        color: "white",
                         whiteSpace: "nowrap",
                       }}
                     >
-                      {cell}
-                    </td>
+                      {hh}
+                    </th>
                   ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+              </thead>
+
+              <tbody>
+                {displayTable.rows.map((row, i) => (
+                  <tr key={i} style={{ background: i % 2 === 0 ? "#000" : "#141414" }}>
+                    {row.map((cell, j) => (
+                      <td
+                        key={j}
+                        style={{
+                          padding: 10,
+                          borderBottom: "1px solid #222",
+                          whiteSpace: "nowrap",
+                          color: "white",
+                        }}
+                      >
+                        {cell}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </main>
     </div>
+  );
+}
+
+function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      style={{
+        textDecoration: "none",
+        padding: "8px 12px",
+        borderRadius: 10,
+        border: "1px solid #333",
+        color: "white",
+        background: "#111",
+        fontWeight: 700,
+      }}
+    >
+      {children}
+    </Link>
   );
 }
