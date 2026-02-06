@@ -1,3 +1,5 @@
+
+
 "use client";
 
 import { useState } from "react";
@@ -113,10 +115,43 @@ export default function ManualSettleButtons(props: {
 
   if (!settled) {
     return (
-      <div style={{ display: "flex", gap: 6 }}>
-        <button disabled={loading} onClick={settleWin}>Win</button>
-        <button disabled={loading} onClick={settleLoss}>Loss</button>
-      </div>
+      <span style={{ whiteSpace: "nowrap" }}>
+        <button
+          onClick={settleWin}
+          disabled={loading}
+          style={{
+            background: "none",
+            border: "none",
+            color: loading ? "#666" : "#9fd",
+            textDecoration: "underline",
+            cursor: loading ? "not-allowed" : "pointer",
+            padding: 0,
+            margin: 0,
+            fontWeight: 700,
+          }}
+        >
+          Win
+        </button>
+
+        <span style={{ color: "#666", margin: "0 8px" }}>|</span>
+
+        <button
+          onClick={settleLoss}
+          disabled={loading}
+          style={{
+            background: "none",
+            border: "none",
+            color: loading ? "#666" : "#f99",
+            textDecoration: "underline",
+            cursor: loading ? "not-allowed" : "pointer",
+            padding: 0,
+            margin: 0,
+            fontWeight: 700,
+          }}
+        >
+          Loss
+        </button>
+      </span>
     );
   }
 
@@ -129,3 +164,4 @@ export default function ManualSettleButtons(props: {
     </div>
   );
 }
+
