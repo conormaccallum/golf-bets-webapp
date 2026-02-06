@@ -43,7 +43,11 @@ export default async function HistoryPage() {
     include: { bets: true },
   });
 
-  const overall = sum(weeks.flatMap((w) => w.bets.map((b) => b.returnUnits)));
+  const overall = sum(
+    weeks.flatMap((w: { bets: Array<{ returnUnits: number | null }> }) =>
+      w.bets.map((b) => b.returnUnits)
+    )
+  );
 
   return (
     <div style={{ minHeight: "100vh", background: "#000", fontFamily: "sans-serif", color: "white" }}>
