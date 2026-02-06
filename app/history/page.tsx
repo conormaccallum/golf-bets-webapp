@@ -5,17 +5,11 @@ import { prisma } from "../../lib/prisma";
 import { HeaderNav } from "../components/ui";
 import ManualSettleButtons from "./ManualSettleButtons";
 
-function sum(nums: Array<number | null | undefined>) {
-  return nums.reduce<number>((acc, n) => acc + (typeof n === "number" ? n : 0), 0);
+function sum(nums: any[]) {
+  return nums.reduce((acc, n) => acc + (typeof n === "number" ? n : 0), 0);
 }
 
-function formatOutcome(b: {
-  betType: string;
-  resultWinFlag: number | null;
-  stakeUnits: number | null;
-  marketOddsBestDec: number | null;
-  returnUnits: number | null;
-}) {
+function formatOutcome(b: any) {
   if (b.resultWinFlag === null) return "";
   if (b.resultWinFlag === 0) return "Loss";
 
@@ -24,9 +18,9 @@ function formatOutcome(b: {
 
   if (
     isTop20 &&
-    b.stakeUnits !== null &&
-    b.marketOddsBestDec !== null &&
-    b.returnUnits !== null
+    b.stakeUnits != null &&
+    b.marketOddsBestDec != null &&
+    b.returnUnits != null
   ) {
     const expectedProfit = b.stakeUnits * (b.marketOddsBestDec - 1);
     if (b.returnUnits < expectedProfit - 1e-6) return "W - DHR";
@@ -40,41 +34,57 @@ function dateKey(d: Date) {
 }
 
 export default async function HistoryPage() {
-  const weeks = await prisma.week.findMany({
+  const weeks = (await prisma.week.findMany({
     orderBy: { createdAt: "desc" },
     include: { bets: true },
-  }) as any[];
+  })) as any[];
+
   const overall = sum(
-    weeks.flatMap((w: any) =>
-      (w.bets || []).map((b: any) => b?.returnUnits)
-    )
+    weeks.flatMap((w) => (w.bets || []).map((b: any) => b?.returnUnits))
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: "#000", fontFamily: "sans-serif", color: "white" }}>
+    <div style={{ minHeight: "100vh", background: "#000", color: "white" }}>
       <HeaderNav />
 
       <main style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
         <h1>History</h1>
 
-        <div style={{ border: "1px solid #333", borderRadius: 16, padding: 16 }}>
+        <div style={{ border: "1px solid #333", borderRadius: 12, padding: 12 }}>
           <b>Overall W/L (units): {overall.toFixed(2)}</b>
         </div>
 
         <div style={{ height: 16 }} />
 
-        {weeks.map((w) => {
-          const createdAt = typeof w.createdAt === "string" ? new Date(w.createdAt) : w.createdAt;
+        {weeks.map((w: any) => {
+          const createdAt =
+            typeof w.createdAt === "string"
+              ? new Date(w.createdAt)
+              : w.createdAt;
 
-          const weekTotal = sum(w.bets.map((b) => b.returnUnits));
-          const stakeTotal = sum(w.bets.map((b) => b.stakeUnits));
+          const weekTotal = sum(
+            (w.bets || []).map((b: any) => b?.returnUnits)
+          );
+
+          const stakeTotal = sum(
+            (w.bets || []).map((b: any) => b?.stakeUnits)
+          );
 
           return (
-            <section key={w.id} style={{ border: "1px solid #333", borderRadius: 16, padding: 16, marginBottom: 16 }}>
+            <section
+              key={w.id}
+              style={{
+                border: "1px solid #333",
+                borderRadius: 12,
+                padding: 12,
+                marginBottom: 16,
+              }}
+            >
               <h2>Week {dateKey(createdAt)}</h2>
 
               <p>
-                Bets: {w.bets.length} | Stake: {stakeTotal.toFixed(1)} | Week W/L: {weekTotal.toFixed(2)}
+                Bets: {w.bets?.length ?? 0} | Stake: {stakeTotal.toFixed(1)} |
+                Week W/L: {weekTotal.toFixed(2)}
               </p>
 
               <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -92,7 +102,7 @@ export default async function HistoryPage() {
                 </thead>
 
                 <tbody>
-                  {w.bets.map((b) => (
+                  {(w.bets || []).map((b: any) => (
                     <tr key={b.id}>
                       <td>{b.betType}</td>
                       <td>{b.playerName}</td>
