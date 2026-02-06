@@ -2,6 +2,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { prisma } from "../../lib/prisma";
+import { Prisma } from "@prisma/client";
 import { HeaderNav } from "../components/ui";
 import ManualSettleButtons from "./ManualSettleButtons";
 
@@ -40,11 +41,11 @@ function dateKey(d: Date) {
 }
 
 export default async function HistoryPage() {
-  const weeks = await prisma.week.findMany({
-    orderBy: { createdAt: "desc" },
-    include: { bets: true },
-  });
-
+  const weeks: Prisma.WeekGetPayload<{ include: { bets: true } }>[] =
+    await prisma.week.findMany({
+      orderBy: { createdAt: "desc" },
+      include: { bets: true },
+    });
   const overall = sum(weeks.flatMap((w) => w.bets.map((b) => b.returnUnits)));
 
   return (
