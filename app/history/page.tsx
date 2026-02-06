@@ -129,7 +129,14 @@ export default async function HistoryPage() {
                             {b.returnUnits === null || b.returnUnits === undefined ? "" : Number(b.returnUnits).toFixed(2)}
                           </td>
                           <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>
-                            <ManualSettleButtons betId={b.id} betType={b.betType} />
+                            <ManualSettleButtons
+                              betId={b.id}
+                              betType={b.betType}
+                              resultWinFlag={b.resultWinFlag}
+                              stakeUnits={b.stakeUnits}
+                              oddsDec={b.marketOddsBestDec}
+                              returnUnits={b.returnUnits}
+                            />
                           </td>
                         </tr>
                       ))}
