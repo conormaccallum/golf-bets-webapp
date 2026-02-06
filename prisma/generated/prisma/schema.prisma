@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "./generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Week {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+
+  label     String
+  eventName String
+  eventYear Int
+  eventId   String @unique
+
+  bets Bet[]
+
+  @@index([createdAt])
+}
+
+model Bet {
+  id     Int  @id @default(autoincrement())
+  weekId Int
+  week   Week @relation(fields: [weekId], references: [id], onDelete: Cascade)
+
+  placedAtUtc       String?
+  betType           String
+  playerName        String
+  dgId              Int?
+  marketBookBest    String?
+  marketOddsBestDec Float?
+  stakeUnits        Float?
+
+  pModel    Float?
+  edgeProb  Float?
+  evPerUnit Float?
+  kellyFull Float?
+  kellyFrac Float?
+
+  resultWinFlag Int?
+  returnUnits   Float?
+
+  @@index([weekId])
+}
