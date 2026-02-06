@@ -82,7 +82,9 @@ export default async function HistoryPage() {
                   marginBottom: 16,
                 }}
               >
-                <h2 style={{ margin: 0 }}>{w.label}</h2>
+                <h2 style={{ margin: 0 }}>
+                  Week {typeof w.createdAt === "string" ? w.createdAt.slice(0, 10) : w.createdAt.toISOString().slice(0, 10)}
+                </h2>
                 <p style={{ margin: "6px 0", color: "#bbb" }}>
                   Bets: {w.bets.length} | Stake: {stakeTotal.toFixed(1)} | Week W/L: {weekTotal.toFixed(2)}
                 </p>
