@@ -104,16 +104,14 @@ export default async function HistoryPage() {
                     Bets: {w.bets?.length ?? 0}
                   </span>
                   <span style={{ color: "#bbb" }}>
+                    Stake: {stakeTotal.toFixed(1)}
+                  </span>
+                  <span style={{ color: "#bbb" }}>
                     Week W/L: {weekTotal.toFixed(2)}
                   </span>
                 </summary>
 
                 <div style={{ height: 12 }} />
-
-                <p>
-                  Bets: {w.bets?.length ?? 0} | Stake: {stakeTotal.toFixed(1)} |
-                  Week W/L: {weekTotal.toFixed(2)}
-                </p>
 
                 <div
                   style={{
