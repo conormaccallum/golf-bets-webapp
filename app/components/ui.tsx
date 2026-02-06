@@ -3,27 +3,6 @@
 import Link from "next/link";
 import { ReactNode } from "react";
 
-export function HeaderNav() {
-  return (
-    <header
-      style={{
-        borderBottom: "1px solid #222",
-        padding: "14px 24px",
-        position: "sticky",
-        top: 0,
-        background: "#000",
-        zIndex: 10,
-      }}
-    >
-      <nav style={{ display: "flex", gap: 14, alignItems: "center" }}>
-        <NavLink href="/">Home</NavLink>
-        <NavLink href="/value">Value Screens</NavLink>
-        <NavLink href="/history">History</NavLink>
-      </nav>
-    </header>
-  );
-}
-
 function NavLink({ href, children }: { href: string; children: ReactNode }) {
   return (
     <Link
@@ -152,5 +131,47 @@ export function Table({ data }: { data: { headers: string[]; rows: string[][] } 
         </tbody>
       </table>
     </div>
+  );
+}
+export function HeaderNav() {
+  return (
+    <header
+      style={{
+        borderBottom: "1px solid #222",
+        padding: "14px 24px",
+        position: "sticky",
+        top: 0,
+        background: "#000",
+        zIndex: 10,
+      }}
+    >
+      <nav
+        style={{
+          display: "grid",
+          gridTemplateColumns: "auto 1fr auto",
+          alignItems: "center",
+          padding: "0 16px",
+        }}
+      >
+        {/* LEFT — LOGO */}
+        <div>
+          <img
+            src="/logo.png"
+            alt="Logo"
+            style={{ height: 70, objectFit: "contain" }}
+          />
+        </div>
+
+        {/* CENTER — NAV BUTTONS */}
+        <div style={{ display: "flex", justifyContent: "center", gap: 14 }}>
+          <NavLink href="/">Home</NavLink>
+          <NavLink href="/value">Value Screens</NavLink>
+          <NavLink href="/history">History</NavLink>
+        </div>
+
+        {/* RIGHT — spacer */}
+        <div />
+      </nav>
+    </header>
   );
 }

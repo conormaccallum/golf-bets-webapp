@@ -1,5 +1,7 @@
 import { prisma } from "../../lib/prisma";
 import Link from "next/link";
+import ManualSettleButtons from "./ManualSettleButtons";
+import { HeaderNav } from "../components/ui";
 
 function sum(nums: Array<number | null | undefined>) {
   return nums.reduce<number>(
@@ -19,14 +21,7 @@ export default async function HistoryPage() {
   return (
     <div style={{ minHeight: "100vh", background: "#000", fontFamily: "sans-serif", color: "white" }}>
       {/* NAV */}
-      <header style={{ borderBottom: "1px solid #222", padding: "14px 24px", position: "sticky", top: 0, background: "#000", zIndex: 10 }}>
-        <nav style={{ display: "flex", gap: 14, alignItems: "center" }}>
-          <NavLink href="/">Home</NavLink>
-          <NavLink href="/value">Value Screens</NavLink>
-          <NavLink href="/history">History</NavLink>
-        </nav>
-      </header>
-
+      <HeaderNav />
       <main style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
         <h1 style={{ marginTop: 0 }}>History</h1>
 
@@ -35,7 +30,7 @@ export default async function HistoryPage() {
         </div>
 
         <div style={{ height: 16 }} />
-
+     
         {weeks.length === 0 ? (
           <div style={{ border: "1px solid #333", borderRadius: 16, padding: 16 }}>
             <p style={{ margin: 0 }}>No weeks committed yet.</p>
@@ -85,15 +80,43 @@ export default async function HistoryPage() {
 
                     <tbody>
                       {w.bets.map((b, i) => (
-                        <tr key={b.id} style={{ background: i % 2 === 0 ? "#000" : "#141414" }}>
-                          <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap", color: "white" }}>{b.betType}</td>
-                          <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap", color: "white" }}>{b.playerName}</td>
-                          <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap", color: "white" }}>{b.marketBookBest ?? ""}</td>
-                          <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap", color: "white" }}>{b.marketOddsBestDec ?? ""}</td>
-                          <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap", color: "white" }}>{b.stakeUnits ?? ""}</td>
-                          <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap", color: "white" }}>{b.resultWinFlag ?? ""}</td>
-                          <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap", color: "white" }}>{b.returnUnits ?? ""}</td>
+                        <tr key={b.id}>
+                          <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace:"nowrap", color: "white" }}>
+                            {b.betType}
+                          </td>
+
+                          <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap", color: "white" }}>
+                            {b.playerName}
+                          </td>
+
+                          <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap", color: "white" }}>
+                            {b.marketBookBest ?? ""}
+                          </td>
+
+                          <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap", color: "white" }}>
+                            {b.marketOddsBestDec ?? ""}
+                          </td>
+
+                          <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap", color: "white" }}>
+                            {b.stakeUnits ?? ""}
+                          </td>
+
+                          <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap", color: "white" }}>
+                            <ManualSettleButtons
+                              betId={b.id}
+                              betType={b.betType}
+                              resultWinFlag={b.resultWinFlag}
+                              stakeUnits={b.stakeUnits}
+                              oddsDec={b.marketOddsBestDec}
+                              returnUnits={b.returnUnits}
+                            />
+                          </td>
+
+                          <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap", color: "white" }}>
+                            {b.returnUnits ?? ""}
+                          </td>
                         </tr>
+
                       ))}
                     </tbody>
                   </table>

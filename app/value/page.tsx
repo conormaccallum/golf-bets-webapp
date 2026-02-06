@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { HeaderNav } from "../components/ui";
 
 type Market = "top20" | "make_cut" | "miss_cut";
 
@@ -163,22 +164,7 @@ export default function ValueScreensPage() {
   return (
     <div style={{ minHeight: "100vh", background: "#000", fontFamily: "sans-serif", color: "white" }}>
       {/* NAV */}
-      <header
-        style={{
-          borderBottom: "1px solid #222",
-          padding: "14px 24px",
-          position: "sticky",
-          top: 0,
-          background: "#000",
-          zIndex: 10,
-        }}
-      >
-        <nav style={{ display: "flex", gap: 14, alignItems: "center" }}>
-          <NavLink href="/">Home</NavLink>
-          <NavLink href="/value">Value Screens</NavLink>
-          <NavLink href="/history">History</NavLink>
-        </nav>
-      </header>
+      <HeaderNav />
 
       <main style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
         <h1 style={{ marginTop: 0 }}>Value Screens</h1>
