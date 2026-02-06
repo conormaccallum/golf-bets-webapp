@@ -34,9 +34,9 @@ function dateKey(d: Date) {
 }
 
 export default async function HistoryPage() {
-    const prisma = getPrisma();
+  const prisma = getPrisma();
 
-const weeks = (await prisma.week.findMany({
+  const weeks = (await prisma.week.findMany({
     orderBy: { createdAt: "desc" },
     include: { bets: true },
   })) as any[];
@@ -58,7 +58,7 @@ const weeks = (await prisma.week.findMany({
 
         <div style={{ height: 16 }} />
 
-        {weeks.map((w: any) => {
+        {weeks.map((w: any, idx: number) => {
           const createdAt =
             typeof w.createdAt === "string"
               ? new Date(w.createdAt)
@@ -72,6 +72,11 @@ const weeks = (await prisma.week.findMany({
             (w.bets || []).map((b: any) => b?.stakeUnits)
           );
 
+          const eventTitle =
+            (w.eventName || "").trim() && w.eventYear
+              ? `${w.eventName} ${w.eventYear}`
+              : w.label || `Week ${dateKey(createdAt)}`;
+
           return (
             <section
               key={w.id}
@@ -82,146 +87,168 @@ const weeks = (await prisma.week.findMany({
                 marginBottom: 16,
               }}
             >
-              <h2>Week {dateKey(createdAt)}</h2>
+              <details open={idx === 0}>
+                <summary
+                  style={{
+                    cursor: "pointer",
+                    listStyle: "none",
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 12,
+                    alignItems: "center",
+                    fontWeight: 700,
+                  }}
+                >
+                  <span>{eventTitle}</span>
+                  <span style={{ color: "#bbb" }}>
+                    Bets: {w.bets?.length ?? 0}
+                  </span>
+                  <span style={{ color: "#bbb" }}>
+                    Week W/L: {weekTotal.toFixed(2)}
+                  </span>
+                </summary>
 
-              <p>
-                Bets: {w.bets?.length ?? 0} | Stake: {stakeTotal.toFixed(1)} |
-                Week W/L: {weekTotal.toFixed(2)}
-              </p>
+                <div style={{ height: 12 }} />
 
-              <div
-                style={{
-                  overflowX: "auto",
-                  border: "1px solid #333",
-                  borderRadius: 14,
-                  background: "#000",
-                }}
-              >
-                <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 900 }}>
-                  <thead>
-                    <tr>
-                      {[
-                        "Market",
-                        "Player",
-                        "Book",
-                        "Odds",
-                        "Stake",
-                        "Outcome",
-                        "Returns",
-                        "Settle",
-                      ].map((hh) => (
-                        <th
-                          key={hh}
-                          style={{
-                            textAlign: "left",
-                            padding: 10,
-                            borderBottom: "1px solid #333",
-                            background: "#111",
-                            color: "white",
-                            whiteSpace: "nowrap",
-                          }}
-                        >
-                          {hh}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
+                <p>
+                  Bets: {w.bets?.length ?? 0} | Stake: {stakeTotal.toFixed(1)} |
+                  Week W/L: {weekTotal.toFixed(2)}
+                </p>
 
-                  <tbody>
-                    {(w.bets || []).map((b: any, i: number) => (
-                      <tr key={b.id} style={{ background: i % 2 === 0 ? "#000" : "#141414" }}>
-                        <td
-                          style={{
-                            padding: 10,
-                            borderBottom: "1px solid #222",
-                            whiteSpace: "nowrap",
-                            color: "white",
-                          }}
-                        >
-                          {b.betType}
-                        </td>
-                        <td
-                          style={{
-                            padding: 10,
-                            borderBottom: "1px solid #222",
-                            whiteSpace: "nowrap",
-                            color: "white",
-                          }}
-                        >
-                          {b.playerName}
-                        </td>
-                        <td
-                          style={{
-                            padding: 10,
-                            borderBottom: "1px solid #222",
-                            whiteSpace: "nowrap",
-                            color: "white",
-                          }}
-                        >
-                          {b.marketBookBest ?? ""}
-                        </td>
-                        <td
-                          style={{
-                            padding: 10,
-                            borderBottom: "1px solid #222",
-                            whiteSpace: "nowrap",
-                            color: "white",
-                          }}
-                        >
-                          {b.marketOddsBestDec ?? ""}
-                        </td>
-                        <td
-                          style={{
-                            padding: 10,
-                            borderBottom: "1px solid #222",
-                            whiteSpace: "nowrap",
-                            color: "white",
-                          }}
-                        >
-                          {b.stakeUnits ?? ""}
-                        </td>
-                        <td
-                          style={{
-                            padding: 10,
-                            borderBottom: "1px solid #222",
-                            whiteSpace: "nowrap",
-                            color: "white",
-                          }}
-                        >
-                          {formatOutcome(b)}
-                        </td>
-                        <td
-                          style={{
-                            padding: 10,
-                            borderBottom: "1px solid #222",
-                            whiteSpace: "nowrap",
-                            color: "white",
-                          }}
-                        >
-                          {b.returnUnits ?? ""}
-                        </td>
-                        <td
-                          style={{
-                            padding: 10,
-                            borderBottom: "1px solid #222",
-                            whiteSpace: "nowrap",
-                            color: "white",
-                          }}
-                        >
-                          <ManualSettleButtons
-                            betId={b.id}
-                            betType={b.betType}
-                            resultWinFlag={b.resultWinFlag}
-                            stakeUnits={b.stakeUnits}
-                            oddsDec={b.marketOddsBestDec}
-                            returnUnits={b.returnUnits}
-                          />
-                        </td>
+                <div
+                  style={{
+                    overflowX: "auto",
+                    border: "1px solid #333",
+                    borderRadius: 14,
+                    background: "#000",
+                  }}
+                >
+                  <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 900 }}>
+                    <thead>
+                      <tr>
+                        {[
+                          "Market",
+                          "Player",
+                          "Book",
+                          "Odds",
+                          "Stake",
+                          "Outcome",
+                          "Returns",
+                          "Settle",
+                        ].map((hh) => (
+                          <th
+                            key={hh}
+                            style={{
+                              textAlign: "left",
+                              padding: 10,
+                              borderBottom: "1px solid #333",
+                              background: "#111",
+                              color: "white",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {hh}
+                          </th>
+                        ))}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+
+                    <tbody>
+                      {(w.bets || []).map((b: any, i: number) => (
+                        <tr key={b.id} style={{ background: i % 2 === 0 ? "#000" : "#141414" }}>
+                          <td
+                            style={{
+                              padding: 10,
+                              borderBottom: "1px solid #222",
+                              whiteSpace: "nowrap",
+                              color: "white",
+                            }}
+                          >
+                            {b.betType}
+                          </td>
+                          <td
+                            style={{
+                              padding: 10,
+                              borderBottom: "1px solid #222",
+                              whiteSpace: "nowrap",
+                              color: "white",
+                            }}
+                          >
+                            {b.playerName}
+                          </td>
+                          <td
+                            style={{
+                              padding: 10,
+                              borderBottom: "1px solid #222",
+                              whiteSpace: "nowrap",
+                              color: "white",
+                            }}
+                          >
+                            {b.marketBookBest ?? ""}
+                          </td>
+                          <td
+                            style={{
+                              padding: 10,
+                              borderBottom: "1px solid #222",
+                              whiteSpace: "nowrap",
+                              color: "white",
+                            }}
+                          >
+                            {b.marketOddsBestDec ?? ""}
+                          </td>
+                          <td
+                            style={{
+                              padding: 10,
+                              borderBottom: "1px solid #222",
+                              whiteSpace: "nowrap",
+                              color: "white",
+                            }}
+                          >
+                            {b.stakeUnits ?? ""}
+                          </td>
+                          <td
+                            style={{
+                              padding: 10,
+                              borderBottom: "1px solid #222",
+                              whiteSpace: "nowrap",
+                              color: "white",
+                            }}
+                          >
+                            {formatOutcome(b)}
+                          </td>
+                          <td
+                            style={{
+                              padding: 10,
+                              borderBottom: "1px solid #222",
+                              whiteSpace: "nowrap",
+                              color: "white",
+                            }}
+                          >
+                            {b.returnUnits ?? ""}
+                          </td>
+                          <td
+                            style={{
+                              padding: 10,
+                              borderBottom: "1px solid #222",
+                              whiteSpace: "nowrap",
+                              color: "white",
+                            }}
+                          >
+                            <ManualSettleButtons
+                              betId={b.id}
+                              betType={b.betType}
+                              resultWinFlag={b.resultWinFlag}
+                              stakeUnits={b.stakeUnits}
+                              oddsDec={b.marketOddsBestDec}
+                              returnUnits={b.returnUnits}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
             </section>
           );
         })}
