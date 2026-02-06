@@ -77,8 +77,11 @@ async function fetchJsonFromBase<T>(base: string, name: string): Promise<T> {
   return res.json();
 }
 
-export async function POST() {
+export async function POST(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const force = searchParams.get("force") === "1";
+
     const base = process.env.OUTPUT_BASE_URL;
     if (!base) {
       return NextResponse.json(
@@ -172,7 +175,7 @@ export async function POST() {
     const prisma = getPrisma();
 
     const existing = await prisma.week.findUnique({ where: { eventId } });
-    if (existing) {
+    if (existing && !force) {
       return NextResponse.json(
         { ok: false, error: `Week already committed for eventId ${eventId}` },
         { status: 409 }
@@ -181,16 +184,22 @@ export async function POST() {
 
     const label = `${eventName} ${eventYear}`;
 
-    await prisma.week.create({
-      data: {
-        label,
-        eventName,
-        eventYear,
-        eventId,
-        bets: {
-          create: bets,
+    await prisma.$transaction(async (tx) => {
+      if (existing && force) {
+        await tx.week.delete({ where: { id: existing.id } });
+      }
+
+      await tx.week.create({
+        data: {
+          label,
+          eventName,
+          eventYear,
+          eventId,
+          bets: {
+            create: bets,
+          },
         },
-      },
+      });
     });
 
     return NextResponse.json({
@@ -205,4 +214,3 @@ export async function POST() {
     );
   }
 }
-

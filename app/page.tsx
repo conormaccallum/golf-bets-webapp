@@ -24,14 +24,20 @@ function renameHeaders(table: TableData, mapping: Record<string, string>) {
   };
 }
 
-
 async function postJson(url: string) {
   const res = await fetch(url, { method: "POST" });
   const text = await res.text();
   if (text.trim().startsWith("<")) {
     throw new Error(`Non-JSON response from ${url} (HTTP ${res.status}).`);
   }
-  return JSON.parse(text);
+  const json = JSON.parse(text);
+  if (!res.ok) {
+    const msg = json?.error || `Request failed (HTTP ${res.status}).`;
+    const err = new Error(msg) as any;
+    err.status = res.status;
+    throw err;
+  }
+  return json;
 }
 
 function safeParse<T>(s: string | null): T | null {
@@ -136,12 +142,31 @@ export default function HomePage() {
     setStatus("Committing to DB...");
 
     try {
-      const json = await postJson("/api/commit");
+      let json = await postJson("/api/commit");
       if (!json.ok) throw new Error(json.error || "Commit failed");
       setStatus(`Committed: ${json.label} (bets: ${json.betCount})`);
     } catch (e: any) {
-      setError(e?.message ?? "Unknown error");
-      setStatus("Error");
+      if (e?.status === 409) {
+        const ok = window.confirm(
+          "This event was already committed. Replace the existing week with the new betslip?"
+        );
+        if (ok) {
+          try {
+            const json = await postJson("/api/commit?force=1");
+            setStatus(`Replaced: ${json.label} (bets: ${json.betCount})`);
+            setCommitting(false);
+            return;
+          } catch (e2: any) {
+            setError(e2?.message ?? "Unknown error");
+            setStatus("Error");
+          }
+        } else {
+          setStatus("Cancelled");
+        }
+      } else {
+        setError(e?.message ?? "Unknown error");
+        setStatus("Error");
+      }
     } finally {
       setCommitting(false);
     }
