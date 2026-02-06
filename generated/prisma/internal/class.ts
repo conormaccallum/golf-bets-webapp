@@ -19,8 +19,8 @@ const config: runtime.GetPrismaClientConfig = {
   "previewFeatures": [],
   "clientVersion": "7.3.0",
   "engineVersion": "9d6ad21cbbceab97458517b147a6a09ff43aa735",
-  "activeProvider": "sqlite",
-  "inlineSchema": "generator client {\n  provider = \"prisma-client\"\n  output   = \"../generated/prisma\"\n}\n\ndatasource db {\n  provider = \"sqlite\"\n}\n\nmodel Week {\n  id        Int      @id @default(autoincrement())\n  createdAt DateTime @default(now())\n\n  label     String\n  eventName String\n  eventYear Int\n  eventId   String @unique\n\n  bets Bet[]\n\n  @@index([createdAt])\n}\n\nmodel Bet {\n  id     Int  @id @default(autoincrement())\n  weekId Int\n  week   Week @relation(fields: [weekId], references: [id], onDelete: Cascade)\n\n  placedAtUtc       String?\n  betType           String\n  playerName        String\n  dgId              Int?\n  marketBookBest    String?\n  marketOddsBestDec Float?\n  stakeUnits        Float?\n\n  pModel    Float?\n  edgeProb  Float?\n  evPerUnit Float?\n  kellyFull Float?\n  kellyFrac Float?\n\n  resultWinFlag Int?\n  returnUnits   Float?\n\n  @@index([weekId])\n}\n",
+  "activeProvider": "postgresql",
+  "inlineSchema": "generator client {\n  provider = \"prisma-client\"\n  output   = \"../generated/prisma\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n}\n\nmodel Week {\n  id        Int      @id @default(autoincrement())\n  createdAt DateTime @default(now())\n\n  label     String\n  eventName String\n  eventYear Int\n  eventId   String @unique\n\n  bets Bet[]\n\n  @@index([createdAt])\n}\n\nmodel Bet {\n  id     Int  @id @default(autoincrement())\n  weekId Int\n  week   Week @relation(fields: [weekId], references: [id], onDelete: Cascade)\n\n  placedAtUtc       String?\n  betType           String\n  playerName        String\n  dgId              Int?\n  marketBookBest    String?\n  marketOddsBestDec Float?\n  stakeUnits        Float?\n\n  pModel    Float?\n  edgeProb  Float?\n  evPerUnit Float?\n  kellyFull Float?\n  kellyFrac Float?\n\n  resultWinFlag Int?\n  returnUnits   Float?\n\n  @@index([weekId])\n}\n",
   "runtimeDataModel": {
     "models": {},
     "enums": {},
@@ -37,10 +37,10 @@ async function decodeBase64AsWasm(wasmBase64: string): Promise<WebAssembly.Modul
 }
 
 config.compilerWasm = {
-  getRuntime: async () => await import("@prisma/client/runtime/query_compiler_fast_bg.sqlite.mjs"),
+  getRuntime: async () => await import("@prisma/client/runtime/query_compiler_fast_bg.postgresql.mjs"),
 
   getQueryCompilerWasmModule: async () => {
-    const { wasm } = await import("@prisma/client/runtime/query_compiler_fast_bg.sqlite.wasm-base64.mjs")
+    const { wasm } = await import("@prisma/client/runtime/query_compiler_fast_bg.postgresql.wasm-base64.mjs")
     return await decodeBase64AsWasm(wasm)
   },
 

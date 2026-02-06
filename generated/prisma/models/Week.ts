@@ -1214,6 +1214,7 @@ export type WeekCreateManyArgs<ExtArgs extends runtime.Types.Extensions.Internal
    * The data used to create many Weeks.
    */
   data: Prisma.WeekCreateManyInput | Prisma.WeekCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -1232,6 +1233,7 @@ export type WeekCreateManyAndReturnArgs<ExtArgs extends runtime.Types.Extensions
    * The data used to create many Weeks.
    */
   data: Prisma.WeekCreateManyInput | Prisma.WeekCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**

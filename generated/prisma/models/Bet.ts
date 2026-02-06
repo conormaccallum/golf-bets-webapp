@@ -770,6 +770,7 @@ export type BetCreateOrConnectWithoutWeekInput = {
 
 export type BetCreateManyWeekInputEnvelope = {
   data: Prisma.BetCreateManyWeekInput | Prisma.BetCreateManyWeekInput[]
+  skipDuplicates?: boolean
 }
 
 export type BetUpsertWithWhereUniqueWithoutWeekInput = {
@@ -1664,6 +1665,7 @@ export type BetCreateManyArgs<ExtArgs extends runtime.Types.Extensions.InternalA
    * The data used to create many Bets.
    */
   data: Prisma.BetCreateManyInput | Prisma.BetCreateManyInput[]
+  skipDuplicates?: boolean
 }
 
 /**
@@ -1682,6 +1684,7 @@ export type BetCreateManyAndReturnArgs<ExtArgs extends runtime.Types.Extensions.
    * The data used to create many Bets.
    */
   data: Prisma.BetCreateManyInput | Prisma.BetCreateManyInput[]
+  skipDuplicates?: boolean
   /**
    * Choose, which related nodes to fetch as well
    */
