@@ -67,7 +67,7 @@ export default async function HistoryPage() {
             <p style={{ margin: 0 }}>No weeks committed yet.</p>
           </div>
         ) : (
-          weeks.map((w) => {
+          weeks.map((w: { id: number; createdAt: string | Date; eventId: number | null; bets: Array<{ id: number; betType: string; stakeUnits: number | null; marketOddsBestDec: number | null; returnUnits: number | null; resultWinFlag: number | null }> }) => {
             const weekTotal = sum(w.bets.map((b) => b.returnUnits));
             const stakeTotal = sum(w.bets.map((b) => b.stakeUnits));
 
