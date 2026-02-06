@@ -1,7 +1,7 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-import { prisma } from "../../lib/prisma";
+import { getPrisma } from "../../lib/prisma";
 import { HeaderNav } from "../components/ui";
 import ManualSettleButtons from "./ManualSettleButtons";
 
@@ -34,7 +34,9 @@ function dateKey(d: Date) {
 }
 
 export default async function HistoryPage() {
-  const weeks = (await prisma.week.findMany({
+    const prisma = getPrisma();
+
+const weeks = (await prisma.week.findMany({
     orderBy: { createdAt: "desc" },
     include: { bets: true },
   })) as any[];
