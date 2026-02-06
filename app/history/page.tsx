@@ -89,44 +89,139 @@ const weeks = (await prisma.week.findMany({
                 Week W/L: {weekTotal.toFixed(2)}
               </p>
 
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr>
-                    <th>Market</th>
-                    <th>Player</th>
-                    <th>Book</th>
-                    <th>Odds</th>
-                    <th>Stake</th>
-                    <th>Outcome</th>
-                    <th>Returns</th>
-                    <th>Settle</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {(w.bets || []).map((b: any) => (
-                    <tr key={b.id}>
-                      <td>{b.betType}</td>
-                      <td>{b.playerName}</td>
-                      <td>{b.marketBookBest ?? ""}</td>
-                      <td>{b.marketOddsBestDec ?? ""}</td>
-                      <td>{b.stakeUnits ?? ""}</td>
-                      <td>{formatOutcome(b)}</td>
-                      <td>{b.returnUnits ?? ""}</td>
-                      <td>
-                        <ManualSettleButtons
-                          betId={b.id}
-                          betType={b.betType}
-                          resultWinFlag={b.resultWinFlag}
-                          stakeUnits={b.stakeUnits}
-                          oddsDec={b.marketOddsBestDec}
-                          returnUnits={b.returnUnits}
-                        />
-                      </td>
+              <div
+                style={{
+                  overflowX: "auto",
+                  border: "1px solid #333",
+                  borderRadius: 14,
+                  background: "#000",
+                }}
+              >
+                <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 900 }}>
+                  <thead>
+                    <tr>
+                      {[
+                        "Market",
+                        "Player",
+                        "Book",
+                        "Odds",
+                        "Stake",
+                        "Outcome",
+                        "Returns",
+                        "Settle",
+                      ].map((hh) => (
+                        <th
+                          key={hh}
+                          style={{
+                            textAlign: "left",
+                            padding: 10,
+                            borderBottom: "1px solid #333",
+                            background: "#111",
+                            color: "white",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {hh}
+                        </th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+
+                  <tbody>
+                    {(w.bets || []).map((b: any, i: number) => (
+                      <tr key={b.id} style={{ background: i % 2 === 0 ? "#000" : "#141414" }}>
+                        <td
+                          style={{
+                            padding: 10,
+                            borderBottom: "1px solid #222",
+                            whiteSpace: "nowrap",
+                            color: "white",
+                          }}
+                        >
+                          {b.betType}
+                        </td>
+                        <td
+                          style={{
+                            padding: 10,
+                            borderBottom: "1px solid #222",
+                            whiteSpace: "nowrap",
+                            color: "white",
+                          }}
+                        >
+                          {b.playerName}
+                        </td>
+                        <td
+                          style={{
+                            padding: 10,
+                            borderBottom: "1px solid #222",
+                            whiteSpace: "nowrap",
+                            color: "white",
+                          }}
+                        >
+                          {b.marketBookBest ?? ""}
+                        </td>
+                        <td
+                          style={{
+                            padding: 10,
+                            borderBottom: "1px solid #222",
+                            whiteSpace: "nowrap",
+                            color: "white",
+                          }}
+                        >
+                          {b.marketOddsBestDec ?? ""}
+                        </td>
+                        <td
+                          style={{
+                            padding: 10,
+                            borderBottom: "1px solid #222",
+                            whiteSpace: "nowrap",
+                            color: "white",
+                          }}
+                        >
+                          {b.stakeUnits ?? ""}
+                        </td>
+                        <td
+                          style={{
+                            padding: 10,
+                            borderBottom: "1px solid #222",
+                            whiteSpace: "nowrap",
+                            color: "white",
+                          }}
+                        >
+                          {formatOutcome(b)}
+                        </td>
+                        <td
+                          style={{
+                            padding: 10,
+                            borderBottom: "1px solid #222",
+                            whiteSpace: "nowrap",
+                            color: "white",
+                          }}
+                        >
+                          {b.returnUnits ?? ""}
+                        </td>
+                        <td
+                          style={{
+                            padding: 10,
+                            borderBottom: "1px solid #222",
+                            whiteSpace: "nowrap",
+                            color: "white",
+                          }}
+                        >
+                          <ManualSettleButtons
+                            betId={b.id}
+                            betType={b.betType}
+                            resultWinFlag={b.resultWinFlag}
+                            stakeUnits={b.stakeUnits}
+                            oddsDec={b.marketOddsBestDec}
+                            returnUnits={b.returnUnits}
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </section>
           );
         })}
