@@ -132,8 +132,14 @@ export default function ValueScreensPage() {
   const [rawTable, setRawTable] = useState<TableData | null>(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string>("");
+  const [locked, setLocked] = useState(false);
+  const [lockMsg, setLockMsg] = useState<string | null>(null);
 
-  async function load() {
+  async function load(ignoreLock = false) {
+    if (locked && !ignoreLock) {
+      setStatus("Refresh locked (tournament live)");
+      return;
+    }
     setLoading(true);
     setStatus("Loading...");
     try {
@@ -155,9 +161,33 @@ export default function ValueScreensPage() {
   }
 
   useEffect(() => {
-    load();
+    load(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [market]);
+
+  useEffect(() => {
+    async function loadLock() {
+      try {
+        const res = await fetch("/api/data/event_meta.json", { cache: "no-store" });
+        if (!res.ok) return;
+        const meta = await res.json();
+        const lockDay = String(meta?.refreshLockDay ?? "").toUpperCase();
+        const days = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
+        const lockIdx = days.indexOf(lockDay);
+        if (lockIdx === -1) return;
+        const todayIdx = new Date().getDay();
+        const daysSinceLock = (todayIdx - lockIdx + 7) % 7;
+        const isLocked = daysSinceLock <= 3;
+        setLocked(isLocked);
+        if (isLocked) {
+          setLockMsg(`Refresh locked (${lockDay}–Sunday).`);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    loadLock();
+  }, []);
 
   const displayTable = useMemo(() => transformValueTable(rawTable, market), [rawTable, market]);
 
@@ -187,8 +217,8 @@ export default function ValueScreensPage() {
           </select>
 
           <button
-            onClick={load}
-            disabled={loading}
+            onClick={() => load(false)}
+            disabled={loading || locked}
             style={{
               padding: "8px 12px",
               borderRadius: 10,
@@ -201,7 +231,14 @@ export default function ValueScreensPage() {
             {loading ? "Loading..." : "Refresh"}
           </button>
 
-          <span style={{ color: "#bbb" }}>{status}</span>
+          <span style={{ color: "#bbb" }}>
+            {status}
+            {locked && (
+              <span style={{ marginLeft: 12, color: "#ffb347" }}>
+                {lockMsg ?? "Refresh locked (tournament live)."}
+              </span>
+            )}
+          </span>
         </div>
 
         {!displayTable?.headers?.length ? (

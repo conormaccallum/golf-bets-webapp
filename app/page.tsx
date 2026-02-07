@@ -24,6 +24,7 @@ function renameHeaders(table: TableData, mapping: Record<string, string>) {
   };
 }
 
+
 async function postJson(url: string) {
   const res = await fetch(url, { method: "POST" });
   const text = await res.text();
@@ -60,6 +61,8 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
 
   const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(null);
+  const [locked, setLocked] = useState(false);
+  const [lockMsg, setLockMsg] = useState<string | null>(null);
 
   // Load last saved betslip on first page load
   useEffect(() => {
@@ -75,7 +78,35 @@ export default function HomePage() {
     }
   }, []);
 
+  useEffect(() => {
+    async function loadLock() {
+      try {
+        const res = await fetch("/api/data/event_meta.json", { cache: "no-store" });
+        if (!res.ok) return;
+        const meta = await res.json();
+        const lockDay = String(meta?.refreshLockDay ?? "").toUpperCase();
+        const days = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
+        const lockIdx = days.indexOf(lockDay);
+        if (lockIdx === -1) return;
+        const todayIdx = new Date().getDay();
+        const daysSinceLock = (todayIdx - lockIdx + 7) % 7;
+        const isLocked = daysSinceLock <= 3;
+        setLocked(isLocked);
+        if (isLocked) {
+          setLockMsg(`Refresh locked (${lockDay}–Sunday).`);
+        }
+      } catch {
+        // ignore
+      }
+    }
+    loadLock();
+  }, []);
+
   async function refresh() {
+    if (locked) {
+      setStatus("Refresh locked (tournament live)");
+      return;
+    }
     setLoading(true);
     setError(null);
     setStatus("Running pipeline...");
@@ -181,7 +212,7 @@ export default function HomePage() {
 
         <Card>
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <Button onClick={refresh} disabled={loading}>
+            <Button onClick={refresh} disabled={loading || locked}>
               {loading ? "Running..." : "Refresh betslip"}
             </Button>
 
@@ -196,6 +227,11 @@ export default function HomePage() {
 
           <div style={{ marginTop: 10, color: "#bbb", fontSize: 13 }}>
             Last betslip loaded: {lastLoadedAt ? lastLoadedAt : "None yet"}
+            {locked && (
+              <span style={{ marginLeft: 12, color: "#ffb347" }}>
+                {lockMsg ?? "Refresh locked (tournament live)."}
+              </span>
+            )}
           </div>
 
           {error && (
