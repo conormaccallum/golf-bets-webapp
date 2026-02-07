@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { HeaderNav } from "../components/ui";
 
-type Market = "top20" | "make_cut" | "miss_cut";
+type Market = "top20" | "make_cut" | "miss_cut" | "matchup_2b" | "matchup_3b";
 
 type TableData = {
   headers: string[];
@@ -48,11 +48,15 @@ function formatEdge(e: number | null): string {
 function modelProbHeader(market: Market): string {
   if (market === "top20") return "Model Prob. of Top 20";
   if (market === "make_cut") return "Model Prob. of Make Cut";
+  if (market === "miss_cut") return "Model Prob. of Miss Cut";
   return "Model Prob. of Miss Cut";
 }
 
 function transformValueTable(raw: TableData | null, market: Market): TableData | null {
   if (!raw?.headers?.length) return null;
+  if (market === "matchup_2b" || market === "matchup_3b") {
+    return transformMatchupTable(raw);
+  }
 
   const h = raw.headers;
 
@@ -127,6 +131,57 @@ function transformValueTable(raw: TableData | null, market: Market): TableData |
   return { headers: outHeaders, rows: outRows };
 }
 
+function transformMatchupTable(raw: TableData | null): TableData | null {
+  if (!raw?.headers?.length) return null;
+
+  const h = raw.headers;
+  const idxPlayer = pickIndex(h, ["player_name", "player", "name"]);
+  const idxOpp = pickIndex(h, ["opponents", "opponent", "opp"]);
+  const idxOdds = pickIndex(h, ["market_odds_best_dec", "odds", "odds_dec"]);
+  const idxBook = pickIndex(h, ["market_book_best", "book"]);
+  const idxP = pickIndex(h, ["p_model", "win_prob", "model_prob"]);
+  const idxEdge = pickIndex(h, ["edge_prob", "edge"]);
+
+  const outHeaders = [
+    "Player",
+    "Opponent(s)",
+    "Odds",
+    "Book",
+    "Model Win %",
+    "Edge",
+  ];
+
+  const outRows: string[][] = raw.rows.map((r) => {
+    const player = idxPlayer >= 0 ? (r[idxPlayer] ?? "") : "";
+    const opp = idxOpp >= 0 ? (r[idxOpp] ?? "") : "";
+    const odds = idxOdds >= 0 ? toNumber(r[idxOdds]) : null;
+    const book = idxBook >= 0 ? (r[idxBook] ?? "") : "";
+    const p = idxP >= 0 ? toNumber(r[idxP]) : null;
+    const edge = idxEdge >= 0 ? toNumber(r[idxEdge]) : null;
+
+    return [
+      player,
+      opp,
+      formatOdds(odds),
+      book,
+      formatPct(p),
+      formatEdge(edge),
+    ];
+  });
+
+  // sort by edge desc if edge exists
+  outRows.sort((a, b) => {
+    const ea = toNumber(String(a[5]).replace("%", "").replace("+", ""));
+    const eb = toNumber(String(b[5]).replace("%", "").replace("+", ""));
+    if (ea === null && eb === null) return 0;
+    if (ea === null) return 1;
+    if (eb === null) return -1;
+    return eb - ea;
+  });
+
+  return { headers: outHeaders, rows: outRows };
+}
+
 export default function ValueScreensPage() {
   const [market, setMarket] = useState<Market>("top20");
   const [rawTable, setRawTable] = useState<TableData | null>(null);
@@ -150,6 +205,8 @@ export default function ValueScreensPage() {
       if (market === "top20") setRawTable(json.tables?.top20 ?? null);
       if (market === "make_cut") setRawTable(json.tables?.makeCut ?? null);
       if (market === "miss_cut") setRawTable(json.tables?.missCut ?? null);
+      if (market === "matchup_2b") setRawTable(json.tables?.matchup2 ?? null);
+      if (market === "matchup_3b") setRawTable(json.tables?.matchup3 ?? null);
 
       setStatus("Loaded");
     } catch (e: any) {
@@ -214,6 +271,8 @@ export default function ValueScreensPage() {
             <option value="top20">Top 20</option>
             <option value="make_cut">Make Cut</option>
             <option value="miss_cut">Miss Cut</option>
+            <option value="matchup_2b">Matchups (2-Ball)</option>
+            <option value="matchup_3b">Matchups (3-Ball)</option>
           </select>
 
           <button

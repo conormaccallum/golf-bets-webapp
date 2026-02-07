@@ -17,6 +17,8 @@ export async function GET(
     "latest_value_top20.csv",
     "latest_value_makecut.csv",
     "latest_value_misscut.csv",
+    "latest_value_matchups_2ball.csv",
+    "latest_value_matchups_3ball.csv",
     "event_meta.json",
   ]);
 

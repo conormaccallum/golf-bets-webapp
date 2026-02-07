@@ -82,16 +82,20 @@ export async function POST() {
     const top20Csv = await fetchTextFromBase(base, "latest_value_top20.csv");
     const makeCutCsv = await fetchTextFromBase(base, "latest_value_makecut.csv");
     const missCutCsv = await fetchTextFromBase(base, "latest_value_misscut.csv");
+    const matchup2Csv = await fetchTextFromBase(base, "latest_value_matchups_2ball.csv");
+    const matchup3Csv = await fetchTextFromBase(base, "latest_value_matchups_3ball.csv");
 
     return NextResponse.json({
       ok: true,
       meta: eventMeta,
-      raw: { betslipCsv, top20Csv, makeCutCsv, missCutCsv },
+      raw: { betslipCsv, top20Csv, makeCutCsv, missCutCsv, matchup2Csv, matchup3Csv },
       tables: {
         betslip: parseCsv(betslipCsv),
         top20: parseCsv(top20Csv),
         makeCut: parseCsv(makeCutCsv),
         missCut: parseCsv(missCutCsv),
+        matchup2: parseCsv(matchup2Csv),
+        matchup3: parseCsv(matchup3Csv),
       },
       generatedAt: new Date().toISOString(),
     });
