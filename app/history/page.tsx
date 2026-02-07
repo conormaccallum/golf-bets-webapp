@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { getPrisma } from "../../lib/prisma";
 import { HeaderNav } from "../components/ui";
 import ManualSettleButtons from "./ManualSettleButtons";
+import WeekControls from "./WeekControls";
 
 function sum(nums: any[]) {
   return nums.reduce((acc, n) => acc + (typeof n === "number" ? n : 0), 0);
@@ -60,9 +61,7 @@ export default async function HistoryPage() {
 
         {weeks.map((w: any, idx: number) => {
           const createdAt =
-            typeof w.createdAt === "string"
-              ? new Date(w.createdAt)
-              : w.createdAt;
+            typeof w.createdAt === "string" ? new Date(w.createdAt) : w.createdAt;
 
           const weekTotal = sum(
             (w.bets || []).map((b: any) => b?.returnUnits)
@@ -76,6 +75,12 @@ export default async function HistoryPage() {
             (w.eventName || "").trim() && w.eventYear
               ? `${w.eventName} ${w.eventYear}`
               : w.label || `Week ${dateKey(createdAt)}`;
+
+          const sortedBets = [...(w.bets || [])].sort((a: any, b: any) => {
+            const sa = Number(a?.stakeUnits ?? 0);
+            const sb = Number(b?.stakeUnits ?? 0);
+            return sb - sa;
+          });
 
           return (
             <section
@@ -108,6 +113,9 @@ export default async function HistoryPage() {
                   </span>
                   <span style={{ color: "#bbb" }}>
                     Week W/L: {weekTotal.toFixed(2)}
+                  </span>
+                  <span style={{ marginLeft: "auto" }}>
+                    <WeekControls weekId={w.id} isFinal={Boolean(w.isFinal)} />
                   </span>
                 </summary>
 
@@ -152,97 +160,104 @@ export default async function HistoryPage() {
                     </thead>
 
                     <tbody>
-                      {(w.bets || []).map((b: any, i: number) => (
-                        <tr key={b.id} style={{ background: i % 2 === 0 ? "#000" : "#141414" }}>
-                          <td
-                            style={{
-                              padding: 10,
-                              borderBottom: "1px solid #222",
-                              whiteSpace: "nowrap",
-                              color: "white",
-                            }}
-                          >
-                            {b.betType}
-                          </td>
-                          <td
-                            style={{
-                              padding: 10,
-                              borderBottom: "1px solid #222",
-                              whiteSpace: "nowrap",
-                              color: "white",
-                            }}
-                          >
-                            {b.playerName}
-                          </td>
-                          <td
-                            style={{
-                              padding: 10,
-                              borderBottom: "1px solid #222",
-                              whiteSpace: "nowrap",
-                              color: "white",
-                            }}
-                          >
-                            {b.marketBookBest ?? ""}
-                          </td>
-                          <td
-                            style={{
-                              padding: 10,
-                              borderBottom: "1px solid #222",
-                              whiteSpace: "nowrap",
-                              color: "white",
-                            }}
-                          >
-                            {b.marketOddsBestDec ?? ""}
-                          </td>
-                          <td
-                            style={{
-                              padding: 10,
-                              borderBottom: "1px solid #222",
-                              whiteSpace: "nowrap",
-                              color: "white",
-                            }}
-                          >
-                            {b.stakeUnits ?? ""}
-                          </td>
-                          <td
-                            style={{
-                              padding: 10,
-                              borderBottom: "1px solid #222",
-                              whiteSpace: "nowrap",
-                              color: "white",
-                            }}
-                          >
-                            {formatOutcome(b)}
-                          </td>
-                          <td
-                            style={{
-                              padding: 10,
-                              borderBottom: "1px solid #222",
-                              whiteSpace: "nowrap",
-                              color: "white",
-                            }}
-                          >
-                            {b.returnUnits ?? ""}
-                          </td>
-                          <td
-                            style={{
-                              padding: 10,
-                              borderBottom: "1px solid #222",
-                              whiteSpace: "nowrap",
-                              color: "white",
-                            }}
-                          >
-                            <ManualSettleButtons
-                              betId={b.id}
-                              betType={b.betType}
-                              resultWinFlag={b.resultWinFlag}
-                              stakeUnits={b.stakeUnits}
-                              oddsDec={b.marketOddsBestDec}
-                              returnUnits={b.returnUnits}
-                            />
-                          </td>
-                        </tr>
-                      ))}
+                      {sortedBets.map((b: any, i: number) => {
+                        let rowBg = i % 2 === 0 ? "#000" : "#141414";
+                        if (b.resultWinFlag === 1) rowBg = "#0f2f1a";
+                        if (b.resultWinFlag === 0) rowBg = "#3a1212";
+
+                        return (
+                          <tr key={b.id} style={{ background: rowBg }}>
+                            <td
+                              style={{
+                                padding: 10,
+                                borderBottom: "1px solid #222",
+                                whiteSpace: "nowrap",
+                                color: "white",
+                              }}
+                            >
+                              {b.betType}
+                            </td>
+                            <td
+                              style={{
+                                padding: 10,
+                                borderBottom: "1px solid #222",
+                                whiteSpace: "nowrap",
+                                color: "white",
+                              }}
+                            >
+                              {b.playerName}
+                            </td>
+                            <td
+                              style={{
+                                padding: 10,
+                                borderBottom: "1px solid #222",
+                                whiteSpace: "nowrap",
+                                color: "white",
+                              }}
+                            >
+                              {b.marketBookBest ?? ""}
+                            </td>
+                            <td
+                              style={{
+                                padding: 10,
+                                borderBottom: "1px solid #222",
+                                whiteSpace: "nowrap",
+                                color: "white",
+                              }}
+                            >
+                              {b.marketOddsBestDec ?? ""}
+                            </td>
+                            <td
+                              style={{
+                                padding: 10,
+                                borderBottom: "1px solid #222",
+                                whiteSpace: "nowrap",
+                                color: "white",
+                              }}
+                            >
+                              {b.stakeUnits ?? ""}
+                            </td>
+                            <td
+                              style={{
+                                padding: 10,
+                                borderBottom: "1px solid #222",
+                                whiteSpace: "nowrap",
+                                color: "white",
+                              }}
+                            >
+                              {formatOutcome(b)}
+                            </td>
+                            <td
+                              style={{
+                                padding: 10,
+                                borderBottom: "1px solid #222",
+                                whiteSpace: "nowrap",
+                                color: "white",
+                              }}
+                            >
+                              {b.returnUnits ?? ""}
+                            </td>
+                            <td
+                              style={{
+                                padding: 10,
+                                borderBottom: "1px solid #222",
+                                whiteSpace: "nowrap",
+                                color: "white",
+                              }}
+                            >
+                              <ManualSettleButtons
+                                betId={b.id}
+                                betType={b.betType}
+                                resultWinFlag={b.resultWinFlag}
+                                stakeUnits={b.stakeUnits}
+                                oddsDec={b.marketOddsBestDec}
+                                returnUnits={b.returnUnits}
+                                isFinal={Boolean(w.isFinal)}
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

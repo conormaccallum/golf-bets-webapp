@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import { useState } from "react";
@@ -26,8 +24,6 @@ function outcomeLabel(params: {
 
   if (resultWinFlag === 0) return "Loss";
 
-  // Win:
-  // If it's Top20, infer DHR by comparing returnUnits vs full profit.
   if (isTop20(betType)) {
     const stake = Number(stakeUnits);
     const odds = Number(oddsDec);
@@ -42,7 +38,6 @@ function outcomeLabel(params: {
       const fullProfit = stake * (odds - 1);
       const ret = Number(returnUnits);
 
-      // If return differs from full profit and is lower => DHR
       if (!approxEqual(ret, fullProfit) && ret < fullProfit) {
         return "W - DHR";
       }
@@ -59,8 +54,9 @@ export default function ManualSettleButtons(props: {
   stakeUnits: number | null | undefined;
   oddsDec: number | null | undefined;
   returnUnits: number | null | undefined;
+  isFinal?: boolean;
 }) {
-  const { betId, betType, resultWinFlag, stakeUnits, oddsDec, returnUnits } = props;
+  const { betId, betType, resultWinFlag, stakeUnits, oddsDec, returnUnits, isFinal } = props;
   const [loading, setLoading] = useState(false);
 
   const settled = !(resultWinFlag === null || resultWinFlag === undefined);
@@ -69,7 +65,7 @@ export default function ManualSettleButtons(props: {
     let deadHeatFrac: number | null = null;
 
     if (isTop20(betType)) {
-      const input = prompt('Dead heat fraction (example: 3/6). Leave blank for full win:');
+      const input = prompt("Dead heat fraction (example: 3/6). Leave blank for full win:");
       if (input && input.includes("/")) {
         const [a, b] = input.split("/");
         const num = Number(a);
@@ -114,6 +110,9 @@ export default function ManualSettleButtons(props: {
   }
 
   if (!settled) {
+    if (isFinal) {
+      return <span style={{ color: "#666" }}>—</span>;
+    }
     return (
       <span style={{ whiteSpace: "nowrap" }}>
         <button
@@ -158,10 +157,28 @@ export default function ManualSettleButtons(props: {
   const label = outcomeLabel({ betType, resultWinFlag, stakeUnits, oddsDec, returnUnits });
 
   return (
-    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
       <span style={{ fontWeight: 700 }}>{label}</span>
-      <button disabled={loading} onClick={undo}>Undo</button>
+      {!isFinal && (
+        <>
+          <span style={{ color: "#666" }}>|</span>
+          <button
+            disabled={loading}
+            onClick={undo}
+            style={{
+              fontSize: 12,
+              padding: "2px 6px",
+              background: "none",
+              border: "1px solid #333",
+              color: "white",
+              borderRadius: 8,
+              cursor: loading ? "not-allowed" : "pointer",
+            }}
+          >
+            Undo
+          </button>
+        </>
+      )}
     </div>
   );
 }
-

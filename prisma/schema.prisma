@@ -10,6 +10,7 @@ generator client {
 model Week {
   id        Int      @id @default(autoincrement())
   createdAt DateTime @default(now())
+  isFinal   Boolean  @default(false)
 
   label     String
   eventName String
