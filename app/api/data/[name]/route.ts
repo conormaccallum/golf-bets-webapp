@@ -15,6 +15,8 @@ export async function GET(
   const allowed = new Set([
     "latest_betslip.csv",
     "latest_value_top20.csv",
+    "latest_value_make_cut.csv",
+    "latest_value_miss_cut.csv",
     "latest_value_makecut.csv",
     "latest_value_misscut.csv",
     "latest_value_matchups_2ball.csv",

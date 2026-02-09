@@ -80,8 +80,8 @@ export async function POST() {
 
     const betslipCsv = await fetchTextFromBase(base, "latest_betslip.csv");
     const top20Csv = await fetchTextFromBase(base, "latest_value_top20.csv");
-    const makeCutCsv = await fetchTextFromBase(base, "latest_value_makecut.csv");
-    const missCutCsv = await fetchTextFromBase(base, "latest_value_misscut.csv");
+    const makeCutCsv = await fetchTextFromBase(base, "latest_value_make_cut.csv");
+    const missCutCsv = await fetchTextFromBase(base, "latest_value_miss_cut.csv");
     const matchup2Csv = await fetchTextFromBase(base, "latest_value_matchups_2ball.csv");
     const matchup3Csv = await fetchTextFromBase(base, "latest_value_matchups_3ball.csv");
 
