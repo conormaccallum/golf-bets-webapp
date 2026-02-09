@@ -30,10 +30,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: true, archived: 0 });
     }
 
+    const label = `${meta.eventName} ${meta.eventYear}`;
     const week = await prisma.week.upsert({
       where: { eventId: meta.eventId },
-      update: { eventName: meta.eventName, eventYear: meta.eventYear },
-      create: { eventId: meta.eventId, eventName: meta.eventName, eventYear: meta.eventYear },
+      update: { label, eventName: meta.eventName, eventYear: meta.eventYear },
+      create: {
+        label,
+        eventId: meta.eventId,
+        eventName: meta.eventName,
+        eventYear: meta.eventYear,
+      },
     });
 
     for (const b of placed) {
@@ -43,8 +49,8 @@ export async function POST(req: Request) {
           betType: b.market,
           playerName: b.playerName,
           dgId: b.dgId ?? undefined,
-          marketBook: b.marketBookBest ?? "",
-          marketOddsDec: b.oddsEnteredDec ?? b.marketOddsBestDec ?? 0,
+          marketBookBest: b.marketBookBest ?? "",
+          marketOddsBestDec: b.oddsEnteredDec ?? b.marketOddsBestDec ?? 0,
           stakeUnits: b.stakeUnits ?? 0,
           pModel: b.pModel ?? 0,
           edgeProb: b.edgeProb ?? 0,
