@@ -48,6 +48,7 @@ export async function GET() {
         all.push({
           market: normalizeMarketName(m.key),
           player_name: r.player_name || r.player || r.p1_player_name || r.p2_player_name || r.p3_player_name || "",
+          opponents: r.opponents || r.p2_player_name || r.p3_player_name || "",
           dg_id: r.dg_id || r.p1_dg_id || "",
           market_odds_best_dec: r.market_odds_best_dec || r.market_odds || r.odds || "",
           market_book_best: r.market_book_best || r.book || r.market_book || "",
@@ -58,12 +59,12 @@ export async function GET() {
     }
 
     all.sort((a, b) => b.edge_prob - a.edge_prob);
-    const top20 = all.filter((x) => x.market === "Top 20").slice(0, 20);
+    const top = all.slice(0, 20);
 
     return NextResponse.json({
       meta,
       summary: {
-        top20,
+        top,
       },
     });
   } catch (e: any) {

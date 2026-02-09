@@ -1,279 +1,240 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { HeaderNav, Button, Card, Table } from "./components/ui";
+import { useEffect, useMemo, useState } from "react";
+import { HeaderNav, Button, Card } from "./components/ui";
 
-type TableData = { headers: string[]; rows: string[][] };
+type SummaryRow = {
+  market?: string;
+  player_name?: string;
+  dg_id?: string | number;
+  market_odds_best_dec?: string | number;
+  market_book_best?: string;
+  edge_prob?: number;
+  p_model?: number;
+  opponents?: string;
+};
 
-const LS_KEY_TABLE = "golf:last_betslip_table";
-const LS_KEY_META  = "golf:last_betslip_meta";
-
-function pickCols(table: TableData, keep: string[]) {
-  const idx: Record<string, number> = {};
-  table.headers.forEach((h, i) => (idx[h] = i));
-
-  const headers = keep;
-  const rows = table.rows.map((r) => keep.map((k) => r[idx[k]] ?? ""));
-  return { headers, rows };
-}
-
-function renameHeaders(table: TableData, mapping: Record<string, string>) {
-  return {
-    headers: table.headers.map((h) => mapping[h] ?? h),
-    rows: table.rows,
+type ValueSummaryResponse = {
+  meta?: {
+    eventId?: string;
+    eventName?: string;
+    eventYear?: number;
+    refreshLockDay?: string;
   };
+  summary?: {
+    top?: SummaryRow[];
+    top20?: SummaryRow[];
+  };
+};
+
+const MIN_EDGE = 0.04;
+
+function toNumber(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "number") return Number.isFinite(v) ? v : null;
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
 }
 
-
-async function postJson(url: string) {
-  const res = await fetch(url, { method: "POST" });
-  const text = await res.text();
-  if (text.trim().startsWith("<")) {
-    throw new Error(`Non-JSON response from ${url} (HTTP ${res.status}).`);
-  }
-  const json = JSON.parse(text);
-  if (!res.ok) {
-    const msg = json?.error || `Request failed (HTTP ${res.status}).`;
-    const err = new Error(msg) as any;
-    err.status = res.status;
-    throw err;
-  }
-  return json;
+function formatPct(v: unknown): string {
+  const n = toNumber(v);
+  if (n === null) return "-";
+  return `${(n * 100).toFixed(1)}%`;
 }
 
-function safeParse<T>(s: string | null): T | null {
-  if (!s) return null;
-  try {
-    return JSON.parse(s) as T;
-  } catch {
-    return null;
-  }
+function formatOdds(v: unknown): string {
+  const n = toNumber(v);
+  if (n === null) return "-";
+  return n.toFixed(2);
+}
+
+function formatEdge(v: unknown): string {
+  const n = toNumber(v);
+  if (n === null) return "-";
+  return `${(n * 100).toFixed(1)}%`;
 }
 
 export default function HomePage() {
   const [loading, setLoading] = useState(false);
-  const [committing, setCommitting] = useState(false);
-  const [runningModel, setRunningModel] = useState(false);
-
-  // This is what we display (persisted)
-  const [table, setTable] = useState<TableData | null>(null);
-
-  const [status, setStatus] = useState<string>("Idle");
   const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<ValueSummaryResponse | null>(null);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  const [addingId, setAddingId] = useState<string | null>(null);
 
-  const [lastLoadedAt, setLastLoadedAt] = useState<string | null>(null);
-  const [locked, setLocked] = useState(false);
-  const [lockMsg, setLockMsg] = useState<string | null>(null);
-
-  // Load last saved betslip on first page load
-  useEffect(() => {
-    const savedTable = safeParse<TableData>(localStorage.getItem(LS_KEY_TABLE));
-    const savedMeta  = safeParse<{ lastLoadedAt: string }>(localStorage.getItem(LS_KEY_META));
-
-    if (savedTable?.headers?.length && savedTable?.rows) {
-      setTable(savedTable);
-      setStatus("Loaded saved betslip");
-    }
-    if (savedMeta?.lastLoadedAt) {
-      setLastLoadedAt(savedMeta.lastLoadedAt);
-    }
-  }, []);
-
-  useEffect(() => {
-    async function loadLock() {
-      try {
-        const res = await fetch("/api/data/event_meta.json", { cache: "no-store" });
-        if (!res.ok) return;
-        const meta = await res.json();
-        const lockDay = String(meta?.refreshLockDay ?? "").toUpperCase();
-        const days = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
-        const lockIdx = days.indexOf(lockDay);
-        if (lockIdx === -1) return;
-        const todayIdx = new Date().getDay();
-        const daysSinceLock = (todayIdx - lockIdx + 7) % 7;
-        const isLocked = daysSinceLock <= 3;
-        setLocked(isLocked);
-        if (isLocked) {
-          setLockMsg(`Refresh locked (${lockDay}–Sunday).`);
-        }
-      } catch {
-        // ignore
-      }
-    }
-    loadLock();
-  }, []);
-
-  async function runModel() {
-    setRunningModel(true);
-    setError(null);
-    setStatus("Dispatching model run...");
-
-    try {
-      const json = await postJson("/api/run-model");
-      if (!json.ok) throw new Error(json.error || "Dispatch failed");
-      setStatus("Model run started (GitHub Actions). Check Actions tab for progress.");
-    } catch (e: any) {
-      setError(e?.message ?? "Unknown error");
-      setStatus("Error");
-    } finally {
-      setRunningModel(false);
-    }
-  }
-
-  async function refresh() {
-    if (locked) {
-      setStatus("Refresh locked (tournament live)");
-      return;
-    }
+  async function load() {
     setLoading(true);
     setError(null);
-    setStatus("Running pipeline...");
-
     try {
-      const json = await postJson("/api/run");
-      if (!json.ok) throw new Error(json.error || "Run failed");
-
-    const rawTable: TableData | null = json.tables?.betslip ?? null;
-    if (!rawTable?.headers?.length) throw new Error("API did not return tables.betslip");
-
-    // ---- HOME DISPLAY VERSION (only keep 5 columns) ----
-
-    // Step A: find the index of each column we care about
-    const idx: Record<string, number> = {};
-    rawTable.headers.forEach((h, i) => (idx[h] = i));
-    
-    // Step B: define the columns we want to show
-    const keep = [
-      "bet_type",
-      "player_name",
-      "market_book_best",
-      "market_odds_best_dec",
-      "stake_units",
-    ];
-
-    // Step C: build the new filtered table
-    const filteredTable: TableData = {
-      headers: ["Market", "Player Name", "Bookmaker", "Odds", "Stake (Units)"],
-      rows: rawTable.rows.map((r) => [
-        r[idx["bet_type"]] ?? "",
-        r[idx["player_name"]] ?? "",
-        r[idx["market_book_best"]] ?? "",
-        r[idx["market_odds_best_dec"]] ?? "",
-        r[idx["stake_units"]] ?? "",
-      ]),
-    };
-
-    // Step D: show it on the page
-    setTable(filteredTable);
-
-    // ----------------------------------------------------
-
-      // Persist ONLY when refresh succeeds
-      const now = new Date().toISOString();
-      setLastLoadedAt(now);
-
-      localStorage.setItem(LS_KEY_TABLE, JSON.stringify(filteredTable));
-      localStorage.setItem(LS_KEY_META, JSON.stringify({ lastLoadedAt: now }));
-      setStatus(`Loaded betslip. Rows: ${filteredTable.rows.length}`);
-
-      
+      const res = await fetch("/api/value-summary", { cache: "no-store" });
+      const text = await res.text();
+      if (text.trim().startsWith("<")) {
+        throw new Error(`Non-JSON response from /api/value-summary (HTTP ${res.status}).`);
+      }
+      const json = JSON.parse(text) as ValueSummaryResponse;
+      if (!res.ok) throw new Error((json as any)?.error || "Failed to load summary");
+      setData(json);
+      setLastUpdatedAt(new Date().toISOString());
     } catch (e: any) {
       setError(e?.message ?? "Unknown error");
-      setStatus("Error");
     } finally {
       setLoading(false);
     }
   }
 
-  async function commit() {
-    setCommitting(true);
-    setError(null);
-    setStatus("Committing to DB...");
+  useEffect(() => {
+    load();
+  }, []);
 
+  const rows = useMemo(() => {
+    return data?.summary?.top ?? data?.summary?.top20 ?? [];
+  }, [data]);
+
+  async function addToBetslip(row: SummaryRow) {
+    const id = String(row.dg_id ?? row.player_name ?? "");
+    setAddingId(id);
+    setError(null);
     try {
-      let json = await postJson("/api/commit");
-      if (!json.ok) throw new Error(json.error || "Commit failed");
-      setStatus(`Committed: ${json.label} (bets: ${json.betCount})`);
-    } catch (e: any) {
-      if (e?.status === 409) {
-        const ok = window.confirm(
-          "This event was already committed. Replace the existing week with the new betslip?"
-        );
-        if (ok) {
-          try {
-            const json = await postJson("/api/commit?force=1");
-            setStatus(`Replaced: ${json.label} (bets: ${json.betCount})`);
-            setCommitting(false);
-            return;
-          } catch (e2: any) {
-            setError(e2?.message ?? "Unknown error");
-            setStatus("Error");
-          }
-        } else {
-          setStatus("Cancelled");
-        }
-      } else {
-        setError(e?.message ?? "Unknown error");
-        setStatus("Error");
+      const payload = {
+        market: row.market ?? "",
+        playerName: row.player_name ?? "",
+        dgId: toNumber(row.dg_id) ?? undefined,
+        opponents: row.opponents ?? "",
+        marketOddsBestDec: toNumber(row.market_odds_best_dec) ?? undefined,
+        marketBookBest: row.market_book_best ?? "",
+        pModel: toNumber(row.p_model) ?? undefined,
+      };
+      const res = await fetch("/api/betslip", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const text = await res.text();
+      if (text.trim().startsWith("<")) {
+        throw new Error(`Non-JSON response from /api/betslip (HTTP ${res.status}).`);
       }
+      const json = JSON.parse(text);
+      if (!res.ok) throw new Error(json?.error || "Failed to add bet");
+    } catch (e: any) {
+      setError(e?.message ?? "Unknown error");
     } finally {
-      setCommitting(false);
+      setAddingId(null);
     }
   }
+
+  const meta = data?.meta;
 
   return (
     <div style={{ minHeight: "100vh", background: "#000", color: "white" }}>
       <HeaderNav />
 
       <main style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
-        <h1 style={{ marginTop: 0 }}>Home</h1>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <h1 style={{ margin: 0 }}>Value Summary</h1>
+          <Button onClick={load} disabled={loading}>
+            {loading ? "Refreshing..." : "Refresh"}
+          </Button>
+          <span style={{ marginLeft: "auto", color: "#bbb" }}>
+            {meta?.eventName ? `${meta.eventName} ${meta.eventYear ?? ""}` : "No event meta"}
+          </span>
+        </div>
 
-        <Card>
-          <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-            <Button onClick={refresh} disabled={loading || locked}>
-              {loading ? "Running..." : "Refresh betslip"}
-            </Button>
+        <div style={{ marginTop: 8, color: "#bbb", fontSize: 13 }}>
+          Last updated: {lastUpdatedAt ?? "Not yet"}
+        </div>
 
-            <Button onClick={runModel} disabled={runningModel}>
-              {runningModel ? "Starting..." : "Run Model"}
-            </Button>
-
-            <Button onClick={commit} disabled={committing}>
-              {committing ? "Committing..." : "Commit"}
-            </Button>
-
-            <span style={{ marginLeft: "auto", color: "#bbb" }}>
-              Status: {status}
-            </span>
-          </div>
-
-          <div style={{ marginTop: 10, color: "#bbb", fontSize: 13 }}>
-            Last betslip loaded: {lastLoadedAt ? lastLoadedAt : "None yet"}
-            {locked && (
-              <span style={{ marginLeft: 12, color: "#ffb347" }}>
-                {lockMsg ?? "Refresh locked (tournament live)."}
-              </span>
-            )}
-          </div>
-
-          {error && (
-            <pre style={{ color: "#ff4d4d", whiteSpace: "pre-wrap", marginTop: 12 }}>
-              {error}
-            </pre>
-          )}
-        </Card>
+        {error && (
+          <pre style={{ color: "#ff4d4d", whiteSpace: "pre-wrap", marginTop: 12 }}>
+            {error}
+          </pre>
+        )}
 
         <div style={{ height: 16 }} />
 
-        {!table ? (
-          <Card>
-            <p style={{ margin: 0, color: "#bbb" }}>No betslip loaded yet. Click Refresh betslip.</p>
-          </Card>
-        ) : (
-          <Card>
-            <Table data={table} />
-          </Card>
-        )}
+        <Card>
+          {!rows.length ? (
+            <p style={{ margin: 0, color: "#bbb" }}>No summary rows available.</p>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+                <thead>
+                  <tr>
+                    {["Market", "Player", "Opponents", "Book", "Odds", "Model", "Edge", ""].map(
+                      (h) => (
+                        <th
+                          key={h}
+                          style={{
+                            textAlign: "left",
+                            padding: "8px 10px",
+                            borderBottom: "1px solid #222",
+                            color: "#bbb",
+                            fontWeight: 600,
+                          }}
+                        >
+                          {h}
+                        </th>
+                      )
+                    )}
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((r, i) => {
+                    const edge = toNumber(r.edge_prob) ?? 0;
+                    const isValue = edge >= MIN_EDGE;
+                    const rowId = String(r.dg_id ?? r.player_name ?? i);
+                    return (
+                      <tr
+                        key={`${rowId}-${i}`}
+                        style={{
+                          background: isValue ? "rgba(0, 200, 120, 0.12)" : "transparent",
+                        }}
+                      >
+                        <td style={{ padding: "8px 10px", borderBottom: "1px solid #111" }}>
+                          {r.market ?? "-"}
+                        </td>
+                        <td style={{ padding: "8px 10px", borderBottom: "1px solid #111" }}>
+                          {r.player_name ?? "-"}
+                        </td>
+                        <td style={{ padding: "8px 10px", borderBottom: "1px solid #111" }}>
+                          {r.opponents ?? "-"}
+                        </td>
+                        <td style={{ padding: "8px 10px", borderBottom: "1px solid #111" }}>
+                          {r.market_book_best ?? "-"}
+                        </td>
+                        <td style={{ padding: "8px 10px", borderBottom: "1px solid #111" }}>
+                          {formatOdds(r.market_odds_best_dec)}
+                        </td>
+                        <td style={{ padding: "8px 10px", borderBottom: "1px solid #111" }}>
+                          {formatPct(r.p_model)}
+                        </td>
+                        <td
+                          style={{
+                            padding: "8px 10px",
+                            borderBottom: "1px solid #111",
+                            color: isValue ? "#8bffb6" : "#bbb",
+                            fontWeight: isValue ? 700 : 400,
+                          }}
+                        >
+                          {formatEdge(r.edge_prob)}
+                        </td>
+                        <td style={{ padding: "8px 10px", borderBottom: "1px solid #111" }}>
+                          <Button
+                            onClick={() => addToBetslip(r)}
+                            disabled={addingId === rowId}
+                          >
+                            {addingId === rowId ? "Adding..." : "Add to Betslip"}
+                          </Button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
       </main>
     </div>
   );
