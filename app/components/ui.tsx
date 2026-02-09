@@ -165,8 +165,8 @@ export function HeaderNav() {
         {/* CENTER — NAV BUTTONS */}
         <div style={{ display: "flex", justifyContent: "center", gap: 14 }}>
           <NavLink href="/">Home</NavLink>
-          <NavLink href="/value">Value Screens</NavLink>
           <NavLink href="/betslip">Betslip</NavLink>
+          <NavLink href="/value">Value Screens</NavLink>
           <NavLink href="/performance">Performance</NavLink>
         </div>
 

@@ -161,7 +161,7 @@ export default function HomePage() {
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
                 <thead>
                   <tr>
-                    {["Market", "Player", "Opponents", "Book", "Odds", "Model", "Edge", ""].map(
+                    {["Market", "Player", "Book", "Odds", "Model", "Edge", ""].map(
                       (h) => (
                         <th
                           key={h}
@@ -196,9 +196,6 @@ export default function HomePage() {
                         </td>
                         <td style={{ padding: "8px 10px", borderBottom: "1px solid #111" }}>
                           {r.player_name ?? "-"}
-                        </td>
-                        <td style={{ padding: "8px 10px", borderBottom: "1px solid #111" }}>
-                          {r.opponents ?? "-"}
                         </td>
                         <td style={{ padding: "8px 10px", borderBottom: "1px solid #111" }}>
                           {r.market_book_best ?? "-"}
