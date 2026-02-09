@@ -75,6 +75,9 @@ function transformValueTable(raw: TableData | null, market: Market): TableData |
   const idxModelProb =
     market === "top20"
       ? pickIndex(h, [
+          "top20_prob_anchored_dh",
+          "top20_prob_anchored",
+          "top20_prob_dh",
           "top20_prob_model",
           "top20_prob",
           "p_top20",
@@ -104,6 +107,8 @@ function transformValueTable(raw: TableData | null, market: Market): TableData |
     "Implied Edge",
   ];
 
+  const idxEdge = pickIndex(h, ["edge_prob", "edge"]);
+
   const outRows: string[][] = raw.rows.map((r) => {
     const player = idxPlayer >= 0 ? (r[idxPlayer] ?? "") : "";
     const dgId = idxDgId >= 0 ? (r[idxDgId] ?? "") : "";
@@ -113,7 +118,8 @@ function transformValueTable(raw: TableData | null, market: Market): TableData |
     const book = idxBook >= 0 ? (r[idxBook] ?? "") : "";
 
     const impliedProb = odds && odds > 0 ? 1 / odds : null;
-    const edge = modelProb !== null && impliedProb !== null ? modelProb - impliedProb : null;
+    const edgeCsv = idxEdge >= 0 ? toNumber(r[idxEdge]) : null;
+    const edge = edgeCsv !== null ? edgeCsv : (modelProb !== null && impliedProb !== null ? modelProb - impliedProb : null);
 
     return [player, dgId, formatPct(modelProb), formatPct(impliedProb), formatOdds(odds), book, formatEdge(edge)];
   });
