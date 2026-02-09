@@ -84,10 +84,13 @@ export async function POST(req: Request) {
     const prisma = getPrisma();
     const meta = await getMeta();
     const body = await req.json();
+    const dgId = body.dgId !== undefined && body.dgId !== null && body.dgId !== ""
+      ? String(body.dgId)
+      : null;
     const uniqueKey = makeUniqueKey({
       eventId: meta.eventId,
       market: body.market,
-      dgId: body.dgId || null,
+      dgId,
       playerName: body.playerName,
       opponents: body.opponents || null,
     });
@@ -102,7 +105,7 @@ export async function POST(req: Request) {
         eventYear: meta.eventYear,
         market: body.market,
         playerName: body.playerName,
-        dgId: body.dgId || null,
+        dgId,
         opponents: body.opponents || null,
         marketBookBest: body.marketBookBest || null,
         marketOddsBestDec: body.marketOddsBestDec || null,
