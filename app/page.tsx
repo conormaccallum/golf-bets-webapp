@@ -53,6 +53,7 @@ function safeParse<T>(s: string | null): T | null {
 export default function HomePage() {
   const [loading, setLoading] = useState(false);
   const [committing, setCommitting] = useState(false);
+  const [runningModel, setRunningModel] = useState(false);
 
   // This is what we display (persisted)
   const [table, setTable] = useState<TableData | null>(null);
@@ -101,6 +102,23 @@ export default function HomePage() {
     }
     loadLock();
   }, []);
+
+  async function runModel() {
+    setRunningModel(true);
+    setError(null);
+    setStatus("Dispatching model run...");
+
+    try {
+      const json = await postJson("/api/run-model");
+      if (!json.ok) throw new Error(json.error || "Dispatch failed");
+      setStatus("Model run started (GitHub Actions). Check Actions tab for progress.");
+    } catch (e: any) {
+      setError(e?.message ?? "Unknown error");
+      setStatus("Error");
+    } finally {
+      setRunningModel(false);
+    }
+  }
 
   async function refresh() {
     if (locked) {
@@ -214,6 +232,10 @@ export default function HomePage() {
           <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
             <Button onClick={refresh} disabled={loading || locked}>
               {loading ? "Running..." : "Refresh betslip"}
+            </Button>
+
+            <Button onClick={runModel} disabled={runningModel}>
+              {runningModel ? "Starting..." : "Run Model"}
             </Button>
 
             <Button onClick={commit} disabled={committing}>
