@@ -166,7 +166,8 @@ export function HeaderNav() {
         <div style={{ display: "flex", justifyContent: "center", gap: 14 }}>
           <NavLink href="/">Home</NavLink>
           <NavLink href="/value">Value Screens</NavLink>
-          <NavLink href="/history">History</NavLink>
+          <NavLink href="/betslip">Betslip</NavLink>
+          <NavLink href="/performance">Performance</NavLink>
         </div>
 
         {/* RIGHT — spacer */}
