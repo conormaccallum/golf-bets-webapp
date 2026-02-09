@@ -43,12 +43,16 @@ export async function POST(req: Request) {
     });
 
     for (const b of placed) {
+      const dgIdNum =
+        b.dgId !== null && b.dgId !== undefined && b.dgId !== ""
+          ? Number(b.dgId)
+          : null;
       await prisma.bet.create({
         data: {
           weekId: week.id,
           betType: b.market,
           playerName: b.playerName,
-          dgId: b.dgId ?? undefined,
+          dgId: Number.isFinite(dgIdNum as number) ? (dgIdNum as number) : null,
           marketBookBest: b.marketBookBest ?? "",
           marketOddsBestDec: b.oddsEnteredDec ?? b.marketOddsBestDec ?? 0,
           stakeUnits: b.stakeUnits ?? 0,
