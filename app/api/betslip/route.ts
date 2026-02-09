@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import { computeStakeUnits, BANKROLL_UNITS, MIN_EDGE, MAX_BET_FRAC } from "@/lib/staking";
 
 const OUTPUT_BASE = process.env.OUTPUT_BASE_URL || "";
@@ -25,6 +25,7 @@ function makeUniqueKey(input: {
 }
 
 async function recalcPending(eventId: string) {
+  const prisma = getPrisma();
   const pending = await prisma.betslipItem.findMany({
     where: { eventId, status: "PENDING" },
     orderBy: { createdAt: "asc" },
@@ -66,6 +67,7 @@ async function recalcPending(eventId: string) {
 
 export async function GET() {
   try {
+    const prisma = getPrisma();
     const meta = await getMeta();
     const items = await prisma.betslipItem.findMany({
       where: { eventId: meta.eventId },
@@ -79,6 +81,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
+    const prisma = getPrisma();
     const meta = await getMeta();
     const body = await req.json();
     const uniqueKey = makeUniqueKey({

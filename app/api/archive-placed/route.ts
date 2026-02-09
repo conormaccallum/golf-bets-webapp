@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 
 const OUTPUT_BASE = process.env.OUTPUT_BASE_URL || "";
 const ARCHIVE_TOKEN = process.env.ARCHIVE_TOKEN || "";
@@ -20,6 +20,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Not allowed" }, { status: 401 });
   }
   try {
+    const prisma = getPrisma();
     const meta = await getMeta();
     const placed = await prisma.betslipItem.findMany({
       where: { eventId: meta.eventId, status: "PLACED" },

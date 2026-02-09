@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { getPrisma } from "@/lib/prisma";
 import { computeStakeUnits, BANKROLL_UNITS, MAX_BET_FRAC } from "@/lib/staking";
 
 async function recalcPending(eventId: string) {
+  const prisma = getPrisma();
   const pending = await prisma.betslipItem.findMany({
     where: { eventId, status: "PENDING" },
     orderBy: { createdAt: "asc" },
@@ -44,6 +45,7 @@ async function recalcPending(eventId: string) {
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
+    const prisma = getPrisma();
     const body = await req.json();
     const item = await prisma.betslipItem.findUnique({ where: { id: params.id } });
     if (!item) return NextResponse.json({ error: "not found" }, { status: 404 });
@@ -66,6 +68,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 
 export async function DELETE(_: Request, { params }: { params: { id: string } }) {
   try {
+    const prisma = getPrisma();
     const item = await prisma.betslipItem.findUnique({ where: { id: params.id } });
     if (!item) return NextResponse.json({ ok: true });
     await prisma.betslipItem.delete({ where: { id: params.id } });
