@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
 import { computeStakeUnits, BANKROLL_UNITS, MAX_BET_FRAC } from "@/lib/staking";
 
@@ -43,15 +43,19 @@ async function recalcPending(eventId: string) {
   }
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const prisma = getPrisma();
+    const { id } = await params;
     const body = await req.json();
-    const item = await prisma.betslipItem.findUnique({ where: { id: params.id } });
+    const item = await prisma.betslipItem.findUnique({ where: { id } });
     if (!item) return NextResponse.json({ error: "not found" }, { status: 404 });
 
     await prisma.betslipItem.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         oddsEnteredDec: body.oddsEnteredDec ?? item.oddsEnteredDec,
         marketBookBest: body.marketBookBest ?? item.marketBookBest,
@@ -66,12 +70,16 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 }
 
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const prisma = getPrisma();
-    const item = await prisma.betslipItem.findUnique({ where: { id: params.id } });
+    const { id } = await params;
+    const item = await prisma.betslipItem.findUnique({ where: { id } });
     if (!item) return NextResponse.json({ ok: true });
-    await prisma.betslipItem.delete({ where: { id: params.id } });
+    await prisma.betslipItem.delete({ where: { id } });
     await recalcPending(item.eventId);
     return NextResponse.json({ ok: true });
   } catch (e: any) {
