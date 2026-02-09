@@ -28,7 +28,7 @@ export async function GET(
     return NextResponse.json({ error: "Not allowed" }, { status: 400 });
   }
 
-  const url = `${base}/${name}`;
+  const url = `${base}/${name}?t=${Date.now()}`;
   const res = await fetch(url, { cache: "no-store" });
 
   if (!res.ok) {

@@ -53,14 +53,14 @@ function parseCsv(text: string): TableData {
 }
 
 async function fetchTextFromBase(base: string, name: string): Promise<string> {
-  const url = `${base}/${name}`;
+  const url = `${base}/${name}?t=${Date.now()}`;
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`Failed to fetch ${name} (${res.status})`);
   return res.text();
 }
 
 async function fetchJsonFromBase<T>(base: string, name: string): Promise<T> {
-  const url = `${base}/${name}`;
+  const url = `${base}/${name}?t=${Date.now()}`;
   const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) throw new Error(`Failed to fetch ${name} (${res.status})`);
   return res.json();
