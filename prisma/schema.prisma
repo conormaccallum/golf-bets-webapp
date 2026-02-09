@@ -46,3 +46,32 @@ model Bet {
 
   @@index([weekId])
 }
+
+enum BetslipStatus {
+  PENDING
+  PLACED
+}
+
+model BetslipItem {
+  id                 String        @id @default(cuid())
+  uniqueKey          String        @unique
+  eventId            String
+  eventName          String
+  eventYear          Int
+  market             String
+  playerName         String
+  dgId               String?
+  opponents          String?
+  marketBookBest     String?
+  marketOddsBestDec  Float?
+  oddsEnteredDec     Float?
+  pModel             Float?
+  edgeProb           Float?
+  evPerUnit          Float?
+  kellyFull          Float?
+  kellyFrac          Float?
+  stakeUnits         Float?
+  status             BetslipStatus @default(PENDING)
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+}

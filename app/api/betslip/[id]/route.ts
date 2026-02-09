@@ -1,0 +1,77 @@
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import { computeStakeUnits, BANKROLL_UNITS, MAX_BET_FRAC } from "@/lib/staking";
+
+async function recalcPending(eventId: string) {
+  const pending = await prisma.betslipItem.findMany({
+    where: { eventId, status: "PENDING" },
+    orderBy: { createdAt: "asc" },
+  });
+
+  const recalced = pending.map((b) => {
+    const oddsDec = b.oddsEnteredDec ?? b.marketOddsBestDec ?? 0;
+    const p = b.pModel ?? 0;
+    const { edge, evPerUnit, kellyFull, kellyFrac, stakeRaw } = computeStakeUnits(p, oddsDec);
+    return {
+      id: b.id,
+      edgeProb: edge,
+      evPerUnit,
+      kellyFull,
+      kellyFrac,
+      stakeUnits: stakeRaw,
+    };
+  });
+
+  const sumStake = recalced.reduce((acc, r) => acc + r.stakeUnits, 0);
+  const scale = sumStake > 0 ? BANKROLL_UNITS / sumStake : 0;
+
+  for (const r of recalced) {
+    let scaled = r.stakeUnits * scale;
+    const cap = BANKROLL_UNITS * MAX_BET_FRAC;
+    if (scaled > cap) scaled = cap;
+    await prisma.betslipItem.update({
+      where: { id: r.id },
+      data: {
+        edgeProb: r.edgeProb,
+        evPerUnit: r.evPerUnit,
+        kellyFull: r.kellyFull,
+        kellyFrac: r.kellyFrac,
+        stakeUnits: Number.isFinite(scaled) ? scaled : 0,
+      },
+    });
+  }
+}
+
+export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+  try {
+    const body = await req.json();
+    const item = await prisma.betslipItem.findUnique({ where: { id: params.id } });
+    if (!item) return NextResponse.json({ error: "not found" }, { status: 404 });
+
+    await prisma.betslipItem.update({
+      where: { id: params.id },
+      data: {
+        oddsEnteredDec: body.oddsEnteredDec ?? item.oddsEnteredDec,
+        marketBookBest: body.marketBookBest ?? item.marketBookBest,
+        status: body.status ?? item.status,
+      },
+    });
+
+    await recalcPending(item.eventId);
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message || "failed" }, { status: 500 });
+  }
+}
+
+export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+  try {
+    const item = await prisma.betslipItem.findUnique({ where: { id: params.id } });
+    if (!item) return NextResponse.json({ ok: true });
+    await prisma.betslipItem.delete({ where: { id: params.id } });
+    await recalcPending(item.eventId);
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message || "failed" }, { status: 500 });
+  }
+}

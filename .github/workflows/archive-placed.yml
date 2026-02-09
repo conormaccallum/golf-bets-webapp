@@ -1,0 +1,23 @@
+name: Archive Placed Bets
+
+on:
+  schedule:
+    - cron: "0 23 * * 3"
+  workflow_dispatch:
+
+jobs:
+  archive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call archive endpoint
+        env:
+          ARCHIVE_URL: ${{ secrets.ARCHIVE_URL }}
+          ARCHIVE_TOKEN: ${{ secrets.ARCHIVE_TOKEN }}
+        run: |
+          if [ -z "$ARCHIVE_URL" ]; then
+            echo "ARCHIVE_URL not set"; exit 1;
+          fi
+          if [ -z "$ARCHIVE_TOKEN" ]; then
+            echo "ARCHIVE_TOKEN not set"; exit 1;
+          fi
+          curl -sS -X POST "$ARCHIVE_URL" -H "Authorization: Bearer $ARCHIVE_TOKEN"
