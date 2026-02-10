@@ -261,6 +261,9 @@ export default function HomePage() {
           Model outputs updated: {data?.lastUpdated ?? "Unknown"}
           {runStatus ? ` • ${runStatus}` : ""}
         </div>
+        <div style={{ marginTop: 4, color: "#8a8a8a", fontSize: 12 }}>
+          Note: model outputs can take up to ~5 minutes to fully update after a run.
+        </div>
         {runStatus && (
           <div style={{ marginTop: 8 }}>
             <div style={{ color: "#bbb", fontSize: 12, marginBottom: 6 }}>
