@@ -53,11 +53,12 @@ export default function BetslipPage() {
   const [error, setError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
 
-  async function load() {
+  async function load(sync = false) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/betslip", { cache: "no-store" });
+      const url = sync ? "/api/betslip?sync=1" : "/api/betslip";
+      const res = await fetch(url, { cache: "no-store" });
       const json = await res.json();
       if (!json.ok) throw new Error(json.error || "Failed to load betslip");
       setEventMeta(json.eventMeta || null);
@@ -189,7 +190,7 @@ export default function BetslipPage() {
       <main style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <h1 style={{ margin: 0 }}>Betslip</h1>
-          <Button onClick={load} disabled={loading}>
+          <Button onClick={() => load(true)} disabled={loading}>
             Refresh
           </Button>
           <button
