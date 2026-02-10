@@ -18,6 +18,7 @@ async function getMeta() {
 export async function POST(req: Request) {
   const auth = req.headers.get("authorization") || "";
   const manual = req.headers.get("x-archive-manual") === "true";
+  const clearAfter = req.headers.get("x-archive-clear") === "true";
   const authed = ARCHIVE_TOKEN && auth === `Bearer ${ARCHIVE_TOKEN}`;
   if (!authed && !(ALLOW_MANUAL_ARCHIVE && manual)) {
     return NextResponse.json({ error: "Not allowed" }, { status: 401 });
@@ -68,10 +69,14 @@ export async function POST(req: Request) {
       });
     }
 
-    await prisma.betslipItem.updateMany({
-      where: { eventId: meta.eventId, status: "PLACED", archivedAt: null },
-      data: { archivedAt: new Date() },
-    });
+    if (clearAfter) {
+      await prisma.betslipItem.deleteMany({ where: { eventId: meta.eventId } });
+    } else {
+      await prisma.betslipItem.updateMany({
+        where: { eventId: meta.eventId, status: "PLACED", archivedAt: null },
+        data: { archivedAt: new Date() },
+      });
+    }
 
     return NextResponse.json({ ok: true, archived: placed.length });
   } catch (e: any) {

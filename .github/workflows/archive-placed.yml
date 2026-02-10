@@ -2,7 +2,8 @@ name: Archive Placed Bets
 
 on:
   schedule:
-    - cron: "0 23 * * 3"
+    # 11pm Sunday EST = 04:00 UTC Monday (standard time)
+    - cron: "0 4 * * 1"
   workflow_dispatch:
 
 jobs:
@@ -20,4 +21,6 @@ jobs:
           if [ -z "$ARCHIVE_TOKEN" ]; then
             echo "ARCHIVE_TOKEN not set"; exit 1;
           fi
-          curl -sS -X POST "$ARCHIVE_URL" -H "Authorization: Bearer $ARCHIVE_TOKEN"
+          curl -sS -X POST "$ARCHIVE_URL" \
+            -H "Authorization: Bearer $ARCHIVE_TOKEN" \
+            -H "x-archive-clear: true"
