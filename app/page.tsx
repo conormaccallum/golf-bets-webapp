@@ -294,7 +294,7 @@ export default function HomePage() {
 
       <main style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <h1 style={{ margin: 0, fontWeight: 700, textDecoration: "underline", fontSize: 28 }}>
+          <h1 style={{ margin: 0, fontWeight: 700, fontSize: 28 }}>
             Value Summary
           </h1>
           <Button onClick={load} disabled={loading}>

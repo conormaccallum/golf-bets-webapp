@@ -269,7 +269,7 @@ export default function ValueScreensPage() {
       <HeaderNav />
 
       <main style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
-        <h1 style={{ marginTop: 0 }}>Value Screens</h1>
+        <h1 style={{ marginTop: 0, fontWeight: 700, fontSize: 28 }}>Value Screens</h1>
 
         <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
           <select

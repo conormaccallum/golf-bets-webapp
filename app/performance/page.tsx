@@ -51,7 +51,7 @@ export default async function PerformancePage() {
       <HeaderNav />
 
       <main style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
-        <h1 style={{ margin: 0, fontWeight: 700, textDecoration: "underline", fontSize: 28 }}>
+        <h1 style={{ margin: 0, fontWeight: 700, fontSize: 28 }}>
           Performance
         </h1>
 
