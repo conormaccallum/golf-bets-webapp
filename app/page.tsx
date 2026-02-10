@@ -86,6 +86,7 @@ export default function HomePage() {
   const [runProgress, setRunProgress] = useState<number>(0);
   const [addingId, setAddingId] = useState<string | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
+  const statusRef = useRef<NodeJS.Timeout | null>(null);
 
   async function load() {
     setLoading(true);
@@ -121,6 +122,10 @@ export default function HomePage() {
       clearInterval(pollRef.current);
       pollRef.current = null;
     }
+    if (statusRef.current) {
+      clearInterval(statusRef.current);
+      statusRef.current = null;
+    }
     try {
       const prevUpdated = data?.lastUpdated ?? null;
       const res = await fetch("/api/run-model", { method: "POST" });
@@ -135,41 +140,71 @@ export default function HomePage() {
       setRunStatus("Step 2/4: Model run started (GitHub Actions)...");
 
       const startedAt = Date.now();
-      pollRef.current = setInterval(async () => {
+      statusRef.current = setInterval(async () => {
         try {
-          setRunStep(3);
-          setRunProgress(60);
-          setRunStatus("Step 3/4: Waiting for outputs to update...");
-          const r = await fetch(`/api/value-summary?t=${Date.now()}`, { cache: "no-store" });
+          const r = await fetch(`/api/run-model?t=${Date.now()}`, { cache: "no-store" });
           const t = await r.text();
           if (t.trim().startsWith("<")) return;
-          const j = JSON.parse(t) as ValueSummaryResponse;
+          const j = JSON.parse(t);
           if (!r.ok) return;
-          const updated = j.lastUpdated ?? null;
-          if (updated && updated !== prevUpdated) {
-            setData(j);
-            setLastUpdatedAt(new Date().toISOString());
-            setRunStep(4);
-            setRunProgress(100);
-            setRunStatus(`Step 4/4: Outputs updated at ${updated}.`);
-            if (pollRef.current) {
-              clearInterval(pollRef.current);
-              pollRef.current = null;
-            }
+          const run = j?.run;
+          if (run?.status === "in_progress" || run?.status === "queued") {
+            setRunStep(2);
+            setRunProgress(40);
+            setRunStatus(`Step 2/4: GitHub Actions ${run.status.replace("_", " ")}...`);
             return;
           }
-          if (Date.now() - startedAt > 12 * 60 * 1000) {
-            setRunProgress(95);
-            setRunStatus("Still running after 12 minutes. Try refresh later.");
-            if (pollRef.current) {
-              clearInterval(pollRef.current);
-              pollRef.current = null;
+          if (run?.status === "completed") {
+            if (statusRef.current) {
+              clearInterval(statusRef.current);
+              statusRef.current = null;
             }
+            if (run?.conclusion !== "success") {
+              setRunProgress(0);
+              setRunStatus(`Run finished with status: ${run.conclusion || "unknown"}`);
+              return;
+            }
+            setRunStep(3);
+            setRunProgress(70);
+            setRunStatus("Step 3/4: Run complete. Waiting for outputs to update...");
+
+            pollRef.current = setInterval(async () => {
+              try {
+                const r2 = await fetch(`/api/value-summary?t=${Date.now()}`, { cache: "no-store" });
+                const t2 = await r2.text();
+                if (t2.trim().startsWith("<")) return;
+                const j2 = JSON.parse(t2) as ValueSummaryResponse;
+                if (!r2.ok) return;
+                const updated = j2.lastUpdated ?? null;
+                if (updated && updated !== prevUpdated) {
+                  setData(j2);
+                  setLastUpdatedAt(new Date().toISOString());
+                  setRunStep(4);
+                  setRunProgress(100);
+                  setRunStatus(`Step 4/4: Outputs updated at ${updated}.`);
+                  if (pollRef.current) {
+                    clearInterval(pollRef.current);
+                    pollRef.current = null;
+                  }
+                  return;
+                }
+                if (Date.now() - startedAt > 12 * 60 * 1000) {
+                  setRunProgress(95);
+                  setRunStatus("Still running after 12 minutes. Try refresh later.");
+                  if (pollRef.current) {
+                    clearInterval(pollRef.current);
+                    pollRef.current = null;
+                  }
+                }
+              } catch {
+                // ignore polling errors
+              }
+            }, 15000);
           }
         } catch {
-          // ignore polling errors
+          // ignore
         }
-      }, 30000);
+      }, 10000);
     } catch (e: any) {
       setError(e?.message ?? "Unknown error");
       setRunProgress(0);
