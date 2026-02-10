@@ -26,6 +26,7 @@ type ValueSummaryResponse = {
     top?: SummaryRow[];
     top20?: SummaryRow[];
   };
+  betslipKeys?: string[];
 };
 
 const MIN_EDGE = 0.04;
@@ -56,6 +57,22 @@ function formatEdge(v: unknown): string {
   const n = toNumber(v);
   if (n === null) return "-";
   return `${(n * 100).toFixed(1)}%`;
+}
+
+function makeUniqueKey(input: {
+  eventId: string;
+  market: string;
+  dgId: string | null;
+  playerName: string;
+  opponents?: string | null;
+}) {
+  return [
+    input.eventId,
+    input.market,
+    input.dgId || "",
+    input.playerName,
+    input.opponents || "",
+  ].join("|");
 }
 
 export default function HomePage() {
@@ -153,8 +170,26 @@ export default function HomePage() {
     return data?.summary?.top ?? data?.summary?.top20 ?? [];
   }, [data]);
 
+  const betslipKeySet = useMemo(() => {
+    return new Set(data?.betslipKeys ?? []);
+  }, [data]);
+
   async function addToBetslip(row: SummaryRow) {
     const id = String(row.dg_id ?? row.player_name ?? "");
+    const dgIdStr = row.dg_id !== undefined && row.dg_id !== null && row.dg_id !== ""
+      ? String(row.dg_id)
+      : null;
+    const uniqueKey = makeUniqueKey({
+      eventId: data?.meta?.eventId ?? "",
+      market: row.market ?? "",
+      dgId: dgIdStr,
+      playerName: row.player_name ?? "",
+      opponents: row.opponents ?? "",
+    });
+    if (betslipKeySet.has(uniqueKey)) {
+      setError("That bet is already in the betslip.");
+      return;
+    }
     setAddingId(id);
     setError(null);
     try {
@@ -178,6 +213,7 @@ export default function HomePage() {
       }
       const json = JSON.parse(text);
       if (!res.ok) throw new Error(json?.error || "Failed to add bet");
+      await load();
     } catch (e: any) {
       setError(e?.message ?? "Unknown error");
     } finally {
@@ -252,6 +288,17 @@ export default function HomePage() {
                     const edge = toNumber(r.edge_prob) ?? 0;
                     const isValue = edge >= MIN_EDGE;
                     const rowId = String(r.dg_id ?? r.player_name ?? i);
+                    const rowKey = makeUniqueKey({
+                      eventId: meta?.eventId ?? "",
+                      market: r.market ?? "",
+                      dgId:
+                        r.dg_id !== undefined && r.dg_id !== null && r.dg_id !== ""
+                          ? String(r.dg_id)
+                          : null,
+                      playerName: r.player_name ?? "",
+                      opponents: r.opponents ?? "",
+                    });
+                    const alreadyAdded = betslipKeySet.has(rowKey);
                     return (
                       <tr
                         key={`${rowId}-${i}`}
@@ -287,9 +334,13 @@ export default function HomePage() {
                         <td style={{ padding: "8px 10px", borderBottom: "1px solid #111" }}>
                           <Button
                             onClick={() => addToBetslip(r)}
-                            disabled={addingId === rowId}
+                            disabled={addingId === rowId || alreadyAdded}
                           >
-                            {addingId === rowId ? "Adding..." : "Add to Betslip"}
+                            {addingId === rowId
+                              ? "Adding..."
+                              : alreadyAdded
+                                ? "Added"
+                                : "Add to Betslip"}
                           </Button>
                         </td>
                       </tr>

@@ -73,7 +73,14 @@ export async function GET() {
       where: { eventId: meta.eventId },
       orderBy: [{ status: "asc" }, { createdAt: "asc" }],
     });
-    return NextResponse.json({ meta, items, bankrollUnits: BANKROLL_UNITS, minEdge: MIN_EDGE });
+    return NextResponse.json({
+      ok: true,
+      meta,
+      eventMeta: meta,
+      items,
+      bankrollUnits: BANKROLL_UNITS,
+      minEdge: MIN_EDGE,
+    });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "failed" }, { status: 500 });
   }

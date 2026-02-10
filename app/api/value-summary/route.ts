@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { parseCsv, rowsToObjects, toNumber } from "@/lib/csv";
+import { getPrisma } from "@/lib/prisma";
 
 const OUTPUT_BASE = process.env.OUTPUT_BASE_URL || "";
 
@@ -18,6 +19,7 @@ function normalizeMarketName(name: string) {
 
 export async function GET() {
   try {
+    const prisma = getPrisma();
     const metaRes = await fetch(pickUrl("event_meta.json"), { cache: "no-store" });
     if (!metaRes.ok) {
       return NextResponse.json({ error: "event_meta.json not found" }, { status: 500 });
@@ -94,12 +96,19 @@ export async function GET() {
     all.sort((a, b) => b.edge_prob - a.edge_prob);
     const top = all.slice(0, 20);
 
+    const betslipItems = await prisma.betslipItem.findMany({
+      where: { eventId: meta.eventId },
+      select: { uniqueKey: true },
+    });
+    const betslipKeys = betslipItems.map((b) => b.uniqueKey);
+
     return NextResponse.json({
       meta,
       lastUpdated,
       summary: {
         top,
       },
+      betslipKeys,
     });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "failed" }, { status: 500 });
