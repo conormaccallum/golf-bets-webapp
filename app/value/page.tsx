@@ -99,11 +99,10 @@ function transformValueTable(raw: TableData | null, market: Market): TableData |
 
   const outHeaders = [
     "Player Name",
-    "DataGolf ID",
-    modelProbHeader(market),
-    "Implied Prob. from Market Odds",
-    "Best Market Odds",
-    "Bookmaker",
+    "Odds",
+    "Book",
+    "Market Win %",
+    "Model Win %",
     "Implied Edge",
   ];
 
@@ -121,13 +120,20 @@ function transformValueTable(raw: TableData | null, market: Market): TableData |
     const edgeCsv = idxEdge >= 0 ? toNumber(r[idxEdge]) : null;
     const edge = edgeCsv !== null ? edgeCsv : (modelProb !== null && impliedProb !== null ? modelProb - impliedProb : null);
 
-    return [player, dgId, formatPct(modelProb), formatPct(impliedProb), formatOdds(odds), book, formatEdge(edge)];
+    return [
+      player,
+      formatOdds(odds),
+      book,
+      formatPct(impliedProb),
+      formatPct(modelProb),
+      formatEdge(edge),
+    ];
   });
 
   // sort by edge desc if edge exists
   outRows.sort((a, b) => {
-    const ea = toNumber(String(a[6]).replace("%", "").replace("+", ""));
-    const eb = toNumber(String(b[6]).replace("%", "").replace("+", ""));
+    const ea = toNumber(String(a[5]).replace("%", "").replace("+", ""));
+    const eb = toNumber(String(b[5]).replace("%", "").replace("+", ""));
     if (ea === null && eb === null) return 0;
     if (ea === null) return 1;
     if (eb === null) return -1;
@@ -153,6 +159,7 @@ function transformMatchupTable(raw: TableData | null): TableData | null {
     "Opponent(s)",
     "Odds",
     "Book",
+    "Market Win %",
     "Model Win %",
     "Edge",
   ];
@@ -164,12 +171,14 @@ function transformMatchupTable(raw: TableData | null): TableData | null {
     const book = idxBook >= 0 ? (r[idxBook] ?? "") : "";
     const p = idxP >= 0 ? toNumber(r[idxP]) : null;
     const edge = idxEdge >= 0 ? toNumber(r[idxEdge]) : null;
+    const impliedProb = odds && odds > 0 ? 1 / odds : null;
 
     return [
       player,
       opp,
       formatOdds(odds),
       book,
+      formatPct(impliedProb),
       formatPct(p),
       formatEdge(edge),
     ];
@@ -177,8 +186,8 @@ function transformMatchupTable(raw: TableData | null): TableData | null {
 
   // sort by edge desc if edge exists
   outRows.sort((a, b) => {
-    const ea = toNumber(String(a[5]).replace("%", "").replace("+", ""));
-    const eb = toNumber(String(b[5]).replace("%", "").replace("+", ""));
+    const ea = toNumber(String(a[6]).replace("%", "").replace("+", ""));
+    const eb = toNumber(String(b[6]).replace("%", "").replace("+", ""));
     if (ea === null && eb === null) return 0;
     if (ea === null) return 1;
     if (eb === null) return -1;
