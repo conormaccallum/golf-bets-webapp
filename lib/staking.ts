@@ -1,6 +1,6 @@
 export const BANKROLL_UNITS = 500;
 export const KELLY_FRACTION = 0.25;
-export const MAX_BET_FRAC = 0.25;
+export const MAX_BET_FRAC = 0.10;
 export const MIN_EDGE = 0.04;
 
 export function computeStakeUnits(p: number, oddsDec: number): {

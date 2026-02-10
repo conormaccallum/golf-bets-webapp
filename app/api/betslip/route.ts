@@ -45,13 +45,10 @@ async function recalcPending(eventId: string) {
     };
   });
 
-  const sumStake = recalced.reduce((acc, r) => acc + r.stakeUnits, 0);
-  const scale = sumStake > 0 ? BANKROLL_UNITS / sumStake : 0;
-
   for (const r of recalced) {
-    let scaled = r.stakeUnits * scale;
     const cap = BANKROLL_UNITS * MAX_BET_FRAC;
-    if (scaled > cap) scaled = cap;
+    let stake = r.stakeUnits;
+    if (stake > cap) stake = cap;
     await prisma.betslipItem.update({
       where: { id: r.id },
       data: {
@@ -59,7 +56,7 @@ async function recalcPending(eventId: string) {
         evPerUnit: r.evPerUnit,
         kellyFull: r.kellyFull,
         kellyFrac: r.kellyFrac,
-        stakeUnits: Number.isFinite(scaled) ? scaled : 0,
+        stakeUnits: Number.isFinite(stake) ? stake : 0,
       },
     });
   }
