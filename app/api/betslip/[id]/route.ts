@@ -57,6 +57,7 @@ export async function PATCH(
         oddsEnteredDec: body.oddsEnteredDec ?? item.oddsEnteredDec,
         marketBookBest: body.marketBookBest ?? item.marketBookBest,
         status: body.status ?? item.status,
+        archivedAt: null,
       },
     });
 
