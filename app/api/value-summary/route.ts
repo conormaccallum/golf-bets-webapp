@@ -25,9 +25,13 @@ export async function GET() {
     const meta = await metaRes.json();
     let lastUpdated: string | null = null;
     try {
-      const headRes = await fetch(pickUrl("latest_betslip.csv"), { method: "HEAD" });
-      const lm = headRes.headers.get("last-modified");
-      if (lm) lastUpdated = lm;
+      const lmMeta = metaRes.headers.get("last-modified");
+      if (lmMeta) lastUpdated = lmMeta;
+      if (!lastUpdated) {
+        const res2 = await fetch(pickUrl("latest_betslip.csv"), { cache: "no-store" });
+        const lm2 = res2.headers.get("last-modified");
+        if (lm2) lastUpdated = lm2;
+      }
     } catch {
       // ignore
     }
