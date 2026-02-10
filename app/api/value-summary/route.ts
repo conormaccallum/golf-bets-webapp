@@ -28,9 +28,30 @@ export async function GET() {
       const lmMeta = metaRes.headers.get("last-modified");
       if (lmMeta) lastUpdated = lmMeta;
       if (!lastUpdated) {
+        const runMetaRes = await fetch(pickUrl("run_meta.json"), { cache: "no-store" });
+        if (runMetaRes.ok) {
+          const runMeta = await runMetaRes.json();
+          lastUpdated =
+            runMeta.runAt ||
+            runMeta.generatedAt ||
+            runMeta.updatedAt ||
+            runMeta.lastRunAt ||
+            null;
+        }
+      }
+      if (!lastUpdated) {
         const res2 = await fetch(pickUrl("latest_betslip.csv"), { cache: "no-store" });
-        const lm2 = res2.headers.get("last-modified");
+        const lm2 = res2.headers.get("last-modified") || res2.headers.get("date");
         if (lm2) lastUpdated = lm2;
+        if (!lastUpdated) {
+          const csv = await res2.text();
+          const { headers, rows } = parseCsv(csv);
+          const idx = headers.indexOf("placed_at_utc");
+          if (idx >= 0 && rows.length > 0) {
+            const max = rows.map((r) => r[idx]).filter(Boolean).sort().at(-1) || null;
+            if (max) lastUpdated = max;
+          }
+        }
       }
     } catch {
       // ignore
