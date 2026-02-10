@@ -21,6 +21,7 @@ type ValueSummaryResponse = {
     eventYear?: number;
     refreshLockDay?: string;
   };
+  lastUpdated?: string | null;
   summary?: {
     top?: SummaryRow[];
     top20?: SummaryRow[];
@@ -59,9 +60,11 @@ function formatEdge(v: unknown): string {
 
 export default function HomePage() {
   const [loading, setLoading] = useState(false);
+  const [runningModel, setRunningModel] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ValueSummaryResponse | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
+  const [runStatus, setRunStatus] = useState<string | null>(null);
   const [addingId, setAddingId] = useState<string | null>(null);
 
   async function load() {
@@ -87,6 +90,27 @@ export default function HomePage() {
   useEffect(() => {
     load();
   }, []);
+
+  async function runModel() {
+    setRunningModel(true);
+    setError(null);
+    setRunStatus("Dispatching model run...");
+    try {
+      const res = await fetch("/api/run-model", { method: "POST" });
+      const text = await res.text();
+      if (text.trim().startsWith("<")) {
+        throw new Error(`Non-JSON response from /api/run-model (HTTP ${res.status}).`);
+      }
+      const json = JSON.parse(text);
+      if (!res.ok) throw new Error(json?.error || "Failed to run model");
+      setRunStatus("Model run started (GitHub Actions).");
+    } catch (e: any) {
+      setError(e?.message ?? "Unknown error");
+      setRunStatus("Error");
+    } finally {
+      setRunningModel(false);
+    }
+  }
 
   const rows = useMemo(() => {
     return data?.summary?.top ?? data?.summary?.top20 ?? [];
@@ -136,13 +160,20 @@ export default function HomePage() {
           <Button onClick={load} disabled={loading}>
             {loading ? "Refreshing..." : "Refresh"}
           </Button>
+          <Button onClick={runModel} disabled={runningModel}>
+            {runningModel ? "Starting..." : "Run Model"}
+          </Button>
           <span style={{ marginLeft: "auto", color: "#bbb" }}>
             {meta?.eventName ? `${meta.eventName} ${meta.eventYear ?? ""}` : "No event meta"}
           </span>
         </div>
 
         <div style={{ marginTop: 8, color: "#bbb", fontSize: 13 }}>
-          Last updated: {lastUpdatedAt ?? "Not yet"}
+          Last fetched: {lastUpdatedAt ?? "Not yet"}
+        </div>
+        <div style={{ marginTop: 4, color: "#bbb", fontSize: 13 }}>
+          Model outputs updated: {data?.lastUpdated ?? "Unknown"}
+          {runStatus ? ` • ${runStatus}` : ""}
         </div>
 
         {error && (

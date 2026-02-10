@@ -23,6 +23,14 @@ export async function GET() {
       return NextResponse.json({ error: "event_meta.json not found" }, { status: 500 });
     }
     const meta = await metaRes.json();
+    let lastUpdated: string | null = null;
+    try {
+      const headRes = await fetch(pickUrl("latest_betslip.csv"), { method: "HEAD" });
+      const lm = headRes.headers.get("last-modified");
+      if (lm) lastUpdated = lm;
+    } catch {
+      // ignore
+    }
 
     const markets = [
       { key: "top20", file: "latest_value_top20.csv" },
@@ -63,6 +71,7 @@ export async function GET() {
 
     return NextResponse.json({
       meta,
+      lastUpdated,
       summary: {
         top,
       },
