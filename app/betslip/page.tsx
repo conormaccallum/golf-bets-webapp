@@ -189,7 +189,9 @@ export default function BetslipPage() {
 
       <main style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <h1 style={{ margin: 0 }}>Betslip</h1>
+          <h1 style={{ margin: 0, fontWeight: 700, textDecoration: "underline", fontSize: 28 }}>
+            Betslip
+          </h1>
           <Button onClick={() => load(true)} disabled={loading}>
             Refresh
           </Button>

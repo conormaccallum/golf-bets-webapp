@@ -51,7 +51,9 @@ export default async function PerformancePage() {
       <HeaderNav />
 
       <main style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
-        <h1>Performance</h1>
+        <h1 style={{ margin: 0, fontWeight: 700, textDecoration: "underline", fontSize: 28 }}>
+          Performance
+        </h1>
 
         <div style={{ border: "1px solid #333", borderRadius: 12, padding: 12 }}>
           <b>Overall W/L (units): {overall.toFixed(2)}</b>
