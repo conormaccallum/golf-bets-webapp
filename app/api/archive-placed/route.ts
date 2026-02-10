@@ -46,6 +46,9 @@ export async function POST(req: Request) {
       },
     });
 
+    // Overwrite the week's bets with the current placed betslip
+    await prisma.bet.deleteMany({ where: { weekId: week.id } });
+
     for (const b of placed) {
       const dgIdNum =
         b.dgId !== null && b.dgId !== undefined && b.dgId !== ""
