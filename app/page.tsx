@@ -59,6 +59,23 @@ function formatEdge(v: unknown): string {
   return `${(n * 100).toFixed(1)}%`;
 }
 
+function formatDateTime(value: string | null | undefined): string {
+  if (!value) return "Unknown";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "Unknown";
+  const date = d.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "2-digit",
+    year: "2-digit",
+  });
+  const time = d.toLocaleTimeString("en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  return `${date} ${time}`;
+}
+
 function makeUniqueKey(input: {
   eventId: string;
   market: string;
@@ -290,10 +307,10 @@ export default function HomePage() {
         </div>
 
         <div style={{ marginTop: 8, color: "#bbb", fontSize: 13 }}>
-          Last fetched: {lastUpdatedAt ?? "Not yet"}
+          Last Refreshed: {formatDateTime(lastUpdatedAt)}
         </div>
         <div style={{ marginTop: 4, color: "#bbb", fontSize: 13 }}>
-          Model outputs updated: {data?.lastUpdated ?? "Unknown"}
+          Model last ran at {formatDateTime(data?.lastUpdated)}
           {runStatus ? ` • ${runStatus}` : ""}
         </div>
         <div style={{ marginTop: 4, color: "#8a8a8a", fontSize: 12 }}>
