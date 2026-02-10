@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { HeaderNav, Button, Card } from "./components/ui";
 
 type SummaryRow = {
@@ -66,6 +66,7 @@ export default function HomePage() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [runStatus, setRunStatus] = useState<string | null>(null);
   const [addingId, setAddingId] = useState<string | null>(null);
+  const pollRef = useRef<NodeJS.Timeout | null>(null);
 
   async function load() {
     setLoading(true);
@@ -95,7 +96,12 @@ export default function HomePage() {
     setRunningModel(true);
     setError(null);
     setRunStatus("Dispatching model run...");
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
     try {
+      const prevUpdated = data?.lastUpdated ?? null;
       const res = await fetch("/api/run-model", { method: "POST" });
       const text = await res.text();
       if (text.trim().startsWith("<")) {
@@ -103,7 +109,38 @@ export default function HomePage() {
       }
       const json = JSON.parse(text);
       if (!res.ok) throw new Error(json?.error || "Failed to run model");
-      setRunStatus("Model run started (GitHub Actions).");
+      setRunStatus("Model run started (GitHub Actions). Waiting for completion...");
+
+      const startedAt = Date.now();
+      pollRef.current = setInterval(async () => {
+        try {
+          const r = await fetch("/api/value-summary", { cache: "no-store" });
+          const t = await r.text();
+          if (t.trim().startsWith("<")) return;
+          const j = JSON.parse(t) as ValueSummaryResponse;
+          if (!r.ok) return;
+          const updated = j.lastUpdated ?? null;
+          if (updated && updated !== prevUpdated) {
+            setData(j);
+            setLastUpdatedAt(new Date().toISOString());
+            setRunStatus(`Model run completed at ${updated}.`);
+            if (pollRef.current) {
+              clearInterval(pollRef.current);
+              pollRef.current = null;
+            }
+            return;
+          }
+          if (Date.now() - startedAt > 12 * 60 * 1000) {
+            setRunStatus("Model run still in progress. Try refresh later.");
+            if (pollRef.current) {
+              clearInterval(pollRef.current);
+              pollRef.current = null;
+            }
+          }
+        } catch {
+          // ignore polling errors
+        }
+      }, 30000);
     } catch (e: any) {
       setError(e?.message ?? "Unknown error");
       setRunStatus("Error");

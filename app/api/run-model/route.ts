@@ -4,7 +4,7 @@ export async function POST() {
   try {
     const token = process.env.GITHUB_ACTIONS_TOKEN;
     const repo = process.env.GITHUB_REPO;
-    const workflow = process.env.GITHUB_WORKFLOW || "weekly.yml";
+    const workflow = process.env.GITHUB_WORKFLOW || "run-model.yml";
     const ref = process.env.GITHUB_REF || "main";
 
     if (!token || !repo) {
