@@ -3,6 +3,7 @@ import { getPrisma } from "@/lib/prisma";
 
 const OUTPUT_BASE = process.env.OUTPUT_BASE_URL || "";
 const ARCHIVE_TOKEN = process.env.ARCHIVE_TOKEN || "";
+const ALLOW_MANUAL_ARCHIVE = process.env.ALLOW_MANUAL_ARCHIVE === "true";
 
 function pickUrl(name: string) {
   return `${OUTPUT_BASE}/${name}`;
@@ -16,14 +17,16 @@ async function getMeta() {
 
 export async function POST(req: Request) {
   const auth = req.headers.get("authorization") || "";
-  if (!ARCHIVE_TOKEN || auth !== `Bearer ${ARCHIVE_TOKEN}`) {
+  const manual = req.headers.get("x-archive-manual") === "true";
+  const authed = ARCHIVE_TOKEN && auth === `Bearer ${ARCHIVE_TOKEN}`;
+  if (!authed && !(ALLOW_MANUAL_ARCHIVE && manual)) {
     return NextResponse.json({ error: "Not allowed" }, { status: 401 });
   }
   try {
     const prisma = getPrisma();
     const meta = await getMeta();
     const placed = await prisma.betslipItem.findMany({
-      where: { eventId: meta.eventId, status: "PLACED" },
+      where: { eventId: meta.eventId, status: "PLACED", archivedAt: null },
     });
 
     if (placed.length === 0) {
@@ -65,7 +68,10 @@ export async function POST(req: Request) {
       });
     }
 
-    await prisma.betslipItem.deleteMany({ where: { eventId: meta.eventId, status: "PLACED" } });
+    await prisma.betslipItem.updateMany({
+      where: { eventId: meta.eventId, status: "PLACED", archivedAt: null },
+      data: { archivedAt: new Date() },
+    });
 
     return NextResponse.json({ ok: true, archived: placed.length });
   } catch (e: any) {

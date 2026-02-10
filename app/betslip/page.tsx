@@ -51,6 +51,7 @@ export default function BetslipPage() {
   const [edits, setEdits] = useState<Record<string, { oddsDec: string; book: string }>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [archiving, setArchiving] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -150,6 +151,24 @@ export default function BetslipPage() {
     await load();
   }
 
+  async function archivePlaced() {
+    setArchiving(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/archive-placed", {
+        method: "POST",
+        headers: { "x-archive-manual": "true" },
+      });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || "Failed to commit placed bets");
+      await load();
+    } catch (e: any) {
+      setError(e?.message || "Failed to commit placed bets");
+    } finally {
+      setArchiving(false);
+    }
+  }
+
   const pending = useMemo(
     () => items.filter((i) => i.status === "PENDING"),
     [items]
@@ -173,6 +192,21 @@ export default function BetslipPage() {
           <Button onClick={load} disabled={loading}>
             Refresh
           </Button>
+          <button
+            onClick={archivePlaced}
+            disabled={archiving}
+            style={{
+              border: "1px solid #4b2a00",
+              background: "#2b1a06",
+              color: "#ffd7a3",
+              padding: "8px 12px",
+              borderRadius: 10,
+              cursor: "pointer",
+              fontWeight: 700,
+            }}
+          >
+            {archiving ? "Committing..." : "Commit Placed Bets"}
+          </button>
         </div>
 
         <div style={{ height: 8 }} />
@@ -182,6 +216,11 @@ export default function BetslipPage() {
             {eventMeta.eventName} {eventMeta.eventYear}
           </div>
         ) : null}
+
+        <div style={{ height: 6 }} />
+        <div style={{ color: "#c9a97a", fontSize: 12 }}>
+          Only commit when all bets are placed. Committing does not clear the betslip.
+        </div>
 
         <div style={{ height: 12 }} />
 
