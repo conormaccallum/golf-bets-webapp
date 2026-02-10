@@ -6,28 +6,26 @@ import { Button, HeaderNav } from "../components/ui";
 const MIN_EDGE = 0.04;
 
 type BetslipItem = {
-  id: number;
+  id: string;
   eventId: string;
   eventName: string | null;
   eventYear: number | null;
-  betType: string;
+  market: string;
   playerName: string;
-  dgId: number | null;
-  groupId: string | null;
+  dgId: string | null;
   opponents: string | null;
-  modelBook: string | null;
-  modelOddsDec: number | null;
-  book: string | null;
-  oddsDec: number | null;
+  marketBookBest: string | null;
+  marketOddsBestDec: number | null;
+  oddsEnteredDec: number | null;
   pModel: number | null;
-  pPush: number | null;
   edgeProb: number | null;
   evPerUnit: number | null;
   kellyFull: number | null;
   kellyFrac: number | null;
   stakeUnits: number | null;
   status: "PENDING" | "PLACED";
-  placedAtUtc: string | null;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 type EventMeta = {
@@ -50,7 +48,7 @@ function edgeLabel(edge: number | null) {
 export default function BetslipPage() {
   const [eventMeta, setEventMeta] = useState<EventMeta | null>(null);
   const [items, setItems] = useState<BetslipItem[]>([]);
-  const [edits, setEdits] = useState<Record<number, { oddsDec: string; book: string }>>({});
+  const [edits, setEdits] = useState<Record<string, { oddsDec: string; book: string }>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,14 +62,15 @@ export default function BetslipPage() {
       setEventMeta(json.eventMeta || null);
       setItems(json.items || []);
       setEdits((prev) => {
-        const next: Record<number, { oddsDec: string; book: string }> = { ...prev };
+        const next: Record<string, { oddsDec: string; book: string }> = { ...prev };
         for (const it of json.items || []) {
+          const oddsValue =
+            it.oddsEnteredDec !== null && it.oddsEnteredDec !== undefined
+              ? it.oddsEnteredDec
+              : it.marketOddsBestDec;
           next[it.id] = {
-            oddsDec:
-              it.oddsDec !== null && it.oddsDec !== undefined
-                ? String(it.oddsDec)
-                : "",
-            book: it.book ?? it.modelBook ?? "",
+            oddsDec: oddsValue !== null && oddsValue !== undefined ? String(oddsValue) : "",
+            book: it.marketBookBest ?? "",
           };
         }
         return next;
@@ -87,7 +86,7 @@ export default function BetslipPage() {
     load();
   }, []);
 
-  async function saveOdds(id: number) {
+  async function saveOdds(id: string) {
     const raw = edits[id]?.oddsDec ?? "";
     const odds = Number(raw);
     if (!raw) return;
@@ -99,7 +98,7 @@ export default function BetslipPage() {
     const res = await fetch(`/api/betslip/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ oddsDec: odds }),
+      body: JSON.stringify({ oddsEnteredDec: odds }),
     });
     const json = await res.json();
     if (!json.ok) {
@@ -109,13 +108,13 @@ export default function BetslipPage() {
     await load();
   }
 
-  async function saveBook(id: number) {
+  async function saveBook(id: string) {
     const book = (edits[id]?.book ?? "").trim();
     setError(null);
     const res = await fetch(`/api/betslip/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ book }),
+      body: JSON.stringify({ marketBookBest: book }),
     });
     const json = await res.json();
     if (!json.ok) {
@@ -125,7 +124,7 @@ export default function BetslipPage() {
     await load();
   }
 
-  async function setStatus(id: number, status: "PENDING" | "PLACED") {
+  async function setStatus(id: string, status: "PENDING" | "PLACED") {
     setError(null);
     const res = await fetch(`/api/betslip/${id}`, {
       method: "PATCH",
@@ -140,7 +139,7 @@ export default function BetslipPage() {
     await load();
   }
 
-  async function removeItem(id: number) {
+  async function removeItem(id: string) {
     setError(null);
     const res = await fetch(`/api/betslip/${id}`, { method: "DELETE" });
     const json = await res.json();
@@ -254,7 +253,7 @@ export default function BetslipPage() {
                     return (
                       <tr key={it.id} style={{ background: rowBg }}>
                         <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
-                          {it.betType}
+                          {it.market}
                         </td>
                         <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
                           {it.playerName}
@@ -263,7 +262,9 @@ export default function BetslipPage() {
                           {it.opponents ?? ""}
                         </td>
                         <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
-                          {it.modelBook ? `${it.modelBook} ${fmt(it.modelOddsDec, 2)}` : fmt(it.modelOddsDec, 2)}
+                          {it.marketBookBest
+                            ? `${it.marketBookBest} ${fmt(it.marketOddsBestDec, 2)}`
+                            : fmt(it.marketOddsBestDec, 2)}
                         </td>
                         <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
                           <input
@@ -401,14 +402,18 @@ export default function BetslipPage() {
                 <tbody>
                   {placed.map((it, idx) => (
                     <tr key={it.id} style={{ background: idx % 2 === 0 ? "#000" : "#141414" }}>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{it.betType}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{it.market}</td>
                       <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{it.playerName}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{it.book ?? ""}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{fmt(it.oddsDec, 2)}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                        {it.marketBookBest ?? ""}
+                      </td>
+                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                        {fmt(it.oddsEnteredDec ?? it.marketOddsBestDec, 2)}
+                      </td>
                       <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{edgeLabel(it.edgeProb)}</td>
                       <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{fmt(it.stakeUnits, 1)}</td>
                       <td style={{ padding: 10, borderBottom: "1px solid #222", color: "#bbb" }}>
-                        {it.placedAtUtc ?? ""}
+                        {it.updatedAt ?? ""}
                       </td>
                       <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
                         <button
