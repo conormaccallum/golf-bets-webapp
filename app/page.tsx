@@ -82,6 +82,8 @@ export default function HomePage() {
   const [data, setData] = useState<ValueSummaryResponse | null>(null);
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [runStatus, setRunStatus] = useState<string | null>(null);
+  const [runStep, setRunStep] = useState<1 | 2 | 3 | 4 | null>(null);
+  const [runProgress, setRunProgress] = useState<number>(0);
   const [addingId, setAddingId] = useState<string | null>(null);
   const pollRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -89,7 +91,7 @@ export default function HomePage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/value-summary", { cache: "no-store" });
+      const res = await fetch(`/api/value-summary?t=${Date.now()}`, { cache: "no-store" });
       const text = await res.text();
       if (text.trim().startsWith("<")) {
         throw new Error(`Non-JSON response from /api/value-summary (HTTP ${res.status}).`);
@@ -112,7 +114,9 @@ export default function HomePage() {
   async function runModel() {
     setRunningModel(true);
     setError(null);
-    setRunStatus("Dispatching model run...");
+    setRunStep(1);
+    setRunProgress(10);
+    setRunStatus("Step 1/4: Dispatching model run...");
     if (pollRef.current) {
       clearInterval(pollRef.current);
       pollRef.current = null;
@@ -126,12 +130,17 @@ export default function HomePage() {
       }
       const json = JSON.parse(text);
       if (!res.ok) throw new Error(json?.error || "Failed to run model");
-      setRunStatus("Model run started (GitHub Actions). Waiting for completion...");
+      setRunStep(2);
+      setRunProgress(30);
+      setRunStatus("Step 2/4: Model run started (GitHub Actions)...");
 
       const startedAt = Date.now();
       pollRef.current = setInterval(async () => {
         try {
-          const r = await fetch("/api/value-summary", { cache: "no-store" });
+          setRunStep(3);
+          setRunProgress(60);
+          setRunStatus("Step 3/4: Waiting for outputs to update...");
+          const r = await fetch(`/api/value-summary?t=${Date.now()}`, { cache: "no-store" });
           const t = await r.text();
           if (t.trim().startsWith("<")) return;
           const j = JSON.parse(t) as ValueSummaryResponse;
@@ -140,7 +149,9 @@ export default function HomePage() {
           if (updated && updated !== prevUpdated) {
             setData(j);
             setLastUpdatedAt(new Date().toISOString());
-            setRunStatus(`Model run completed at ${updated}.`);
+            setRunStep(4);
+            setRunProgress(100);
+            setRunStatus(`Step 4/4: Outputs updated at ${updated}.`);
             if (pollRef.current) {
               clearInterval(pollRef.current);
               pollRef.current = null;
@@ -148,7 +159,8 @@ export default function HomePage() {
             return;
           }
           if (Date.now() - startedAt > 12 * 60 * 1000) {
-            setRunStatus("Model run still in progress. Try refresh later.");
+            setRunProgress(95);
+            setRunStatus("Still running after 12 minutes. Try refresh later.");
             if (pollRef.current) {
               clearInterval(pollRef.current);
               pollRef.current = null;
@@ -160,6 +172,7 @@ export default function HomePage() {
       }, 30000);
     } catch (e: any) {
       setError(e?.message ?? "Unknown error");
+      setRunProgress(0);
       setRunStatus("Error");
     } finally {
       setRunningModel(false);
@@ -248,6 +261,30 @@ export default function HomePage() {
           Model outputs updated: {data?.lastUpdated ?? "Unknown"}
           {runStatus ? ` • ${runStatus}` : ""}
         </div>
+        {runStatus && (
+          <div style={{ marginTop: 8 }}>
+            <div style={{ color: "#bbb", fontSize: 12, marginBottom: 6 }}>
+              Progress: {runProgress}%
+            </div>
+            <div
+              style={{
+                height: 8,
+                background: "#1a1a1a",
+                borderRadius: 999,
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  width: `${runProgress}%`,
+                  height: "100%",
+                  background: "linear-gradient(90deg, #2dd4bf, #22d3ee)",
+                  transition: "width 300ms ease",
+                }}
+              />
+            </div>
+          </div>
+        )}
 
         {error && (
           <pre style={{ color: "#ff4d4d", whiteSpace: "pre-wrap", marginTop: 12 }}>

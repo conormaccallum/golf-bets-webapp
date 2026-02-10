@@ -4,8 +4,11 @@ import { getPrisma } from "@/lib/prisma";
 
 const OUTPUT_BASE = process.env.OUTPUT_BASE_URL || "";
 
-function pickUrl(name: string) {
-  return `${OUTPUT_BASE}/${name}`;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+function pickUrl(name: string, cacheBust: number) {
+  return `${OUTPUT_BASE}/${name}?t=${cacheBust}`;
 }
 
 function normalizeMarketName(name: string) {
@@ -20,7 +23,8 @@ function normalizeMarketName(name: string) {
 export async function GET() {
   try {
     const prisma = getPrisma();
-    const metaRes = await fetch(pickUrl("event_meta.json"), { cache: "no-store" });
+    const cacheBust = Date.now();
+    const metaRes = await fetch(pickUrl("event_meta.json", cacheBust), { cache: "no-store" });
     if (!metaRes.ok) {
       return NextResponse.json({ error: "event_meta.json not found" }, { status: 500 });
     }
@@ -30,7 +34,7 @@ export async function GET() {
       const lmMeta = metaRes.headers.get("last-modified");
       if (lmMeta) lastUpdated = lmMeta;
       if (!lastUpdated) {
-        const runMetaRes = await fetch(pickUrl("run_meta.json"), { cache: "no-store" });
+        const runMetaRes = await fetch(pickUrl("run_meta.json", cacheBust), { cache: "no-store" });
         if (runMetaRes.ok) {
           const runMeta = await runMetaRes.json();
           lastUpdated =
@@ -42,7 +46,7 @@ export async function GET() {
         }
       }
       if (!lastUpdated) {
-        const res2 = await fetch(pickUrl("latest_betslip.csv"), { cache: "no-store" });
+        const res2 = await fetch(pickUrl("latest_betslip.csv", cacheBust), { cache: "no-store" });
         const lm2 = res2.headers.get("last-modified") || res2.headers.get("date");
         if (lm2) lastUpdated = lm2;
         if (!lastUpdated) {
@@ -70,7 +74,7 @@ export async function GET() {
     const all: any[] = [];
 
     for (const m of markets) {
-      const res = await fetch(pickUrl(m.file), { cache: "no-store" });
+      const res = await fetch(pickUrl(m.file, cacheBust), { cache: "no-store" });
       if (!res.ok) continue;
       const csv = await res.text();
       const { headers, rows } = parseCsv(csv);
