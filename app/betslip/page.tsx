@@ -222,7 +222,6 @@ export default function BetslipPage() {
                     {[
                       "Market",
                       "Player",
-                      "Opponents",
                       "Model Odds",
                       "Book",
                       "Odds",
@@ -257,9 +256,6 @@ export default function BetslipPage() {
                         </td>
                         <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
                           {it.playerName}
-                        </td>
-                        <td style={{ padding: 10, borderBottom: "1px solid #222", color: "#bbb" }}>
-                          {it.opponents ?? ""}
                         </td>
                         <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
                           {it.marketBookBest
