@@ -30,6 +30,8 @@ type ValueSummaryResponse = {
 };
 
 const MIN_EDGE = 0.04;
+const MIN_EDGE_MATCHUP_2B = 0.06;
+const MIN_EDGE_MATCHUP_3B = 0.08;
 
 function toNumber(v: unknown): number | null {
   if (v === null || v === undefined) return null;
@@ -57,6 +59,13 @@ function formatEdge(v: unknown): string {
   const n = toNumber(v);
   if (n === null) return "-";
   return `${(n * 100).toFixed(1)}%`;
+}
+
+function marketMinEdge(market?: string): number {
+  const m = (market || "").toLowerCase();
+  if (m.includes("matchup 2")) return MIN_EDGE_MATCHUP_2B;
+  if (m.includes("matchup 3")) return MIN_EDGE_MATCHUP_3B;
+  return MIN_EDGE;
 }
 
 function formatDateTime(value: string | null | undefined): string {
@@ -258,6 +267,13 @@ export default function HomePage() {
     setAddingId(id);
     setError(null);
     try {
+      const edge = toNumber(row.edge_prob);
+      const minEdge = marketMinEdge(row.market);
+      if (edge !== null && edge < minEdge) {
+        setError(
+          `Below threshold for ${row.market ?? "market"} (min ${(minEdge * 100).toFixed(1)}%).`
+        );
+      }
       const payload = {
         market: row.market ?? "",
         playerName: row.player_name ?? "",
@@ -380,7 +396,8 @@ export default function HomePage() {
                 <tbody>
                   {rows.map((r, i) => {
                     const edge = toNumber(r.edge_prob) ?? 0;
-                    const isValue = edge >= MIN_EDGE;
+                    const minEdge = marketMinEdge(r.market);
+                    const isValue = edge >= minEdge;
                     const rowId = String(r.dg_id ?? r.player_name ?? i);
                     const rowKey = makeUniqueKey({
                       eventId: meta?.eventId ?? "",

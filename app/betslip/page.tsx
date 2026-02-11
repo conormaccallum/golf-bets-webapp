@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Button, HeaderNav } from "../components/ui";
 
 const MIN_EDGE = 0.04;
+const MIN_EDGE_MATCHUP_2B = 0.06;
+const MIN_EDGE_MATCHUP_3B = 0.08;
 
 type BetslipItem = {
   id: string;
@@ -43,6 +45,13 @@ function fmt(n: number | null | undefined, dp = 2) {
 function edgeLabel(edge: number | null) {
   if (edge === null || !Number.isFinite(edge)) return "";
   return `${(edge * 100).toFixed(1)}%`;
+}
+
+function marketMinEdge(market?: string): number {
+  const m = (market || "").toLowerCase();
+  if (m.includes("matchup 2")) return MIN_EDGE_MATCHUP_2B;
+  if (m.includes("matchup 3")) return MIN_EDGE_MATCHUP_3B;
+  return MIN_EDGE;
 }
 
 export default function BetslipPage() {
@@ -289,7 +298,8 @@ export default function BetslipPage() {
                 </thead>
                 <tbody>
                   {pending.map((it, idx) => {
-                    const edgeLow = it.edgeProb !== null && it.edgeProb < MIN_EDGE;
+                    const minEdge = marketMinEdge(it.market);
+                    const edgeLow = it.edgeProb !== null && it.edgeProb < minEdge;
                     const rowBg = edgeLow ? "#2b1414" : idx % 2 === 0 ? "#000" : "#141414";
                     return (
                       <tr key={it.id} style={{ background: rowBg }}>
@@ -349,7 +359,9 @@ export default function BetslipPage() {
                         <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
                           <div style={{ fontWeight: 700 }}>{edgeLabel(it.edgeProb)}</div>
                           {edgeLow ? (
-                            <div style={{ color: "#ffb3b3", fontSize: 12 }}>Below 4%</div>
+                            <div style={{ color: "#ffb3b3", fontSize: 12 }}>
+                              Below {(minEdge * 100).toFixed(0)}%
+                            </div>
                           ) : null}
                         </td>
                         <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
