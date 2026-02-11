@@ -11,8 +11,8 @@ function playerKey(dgId: string | null, playerName: string) {
   return dgId ? `dg:${dgId}` : `name:${playerName}`;
 }
 
-function applyPlayerCap(
-  recalced: Array<{ id: string; stakeUnits: number }>,
+function applyPlayerCap<T extends { id: string; stakeUnits: number }>(
+  recalced: Array<T>,
   pending: Array<{ id: string; dgId: string | null; playerName: string }>,
   placed: Array<{ dgId: string | null; playerName: string; stakeUnits: number | null }>
 ) {
