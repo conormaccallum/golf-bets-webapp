@@ -30,6 +30,12 @@ function formatOutcome(b: any) {
   return "Win";
 }
 
+function fmt(n: any, dp = 2) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return "";
+  return v.toFixed(dp);
+}
+
 function dateKey(d: Date) {
   return d.toISOString().slice(0, 10);
 }
@@ -200,7 +206,7 @@ export default async function PerformancePage() {
                                 color: "white",
                               }}
                             >
-                              {b.marketOddsBestDec ?? ""}
+                              {fmt(b.marketOddsBestDec, 2)}
                             </td>
                             <td
                               style={{
@@ -210,7 +216,7 @@ export default async function PerformancePage() {
                                 color: "white",
                               }}
                             >
-                              {b.stakeUnits ?? ""}
+                              {fmt(b.stakeUnits, 2)}
                             </td>
                             <td
                               style={{
@@ -230,7 +236,7 @@ export default async function PerformancePage() {
                                 color: "white",
                               }}
                             >
-                              {b.returnUnits ?? ""}
+                              {fmt(b.returnUnits, 2)}
                             </td>
                             <td
                               style={{
