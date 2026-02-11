@@ -11,37 +11,109 @@ function playerKey(dgId: string | null, playerName: string) {
   return dgId ? `dg:${dgId}` : `name:${playerName}`;
 }
 
+function splitOpponents(opponents: string | null) {
+  if (!opponents) return [];
+  return opponents
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean);
+}
+
 function applyPlayerCap<T extends { id: string; stakeUnits: number }>(
   recalced: Array<T>,
-  pending: Array<{ id: string; dgId: string | null; playerName: string }>,
-  placed: Array<{ dgId: string | null; playerName: string; stakeUnits: number | null }>
+  pending: Array<{
+    id: string;
+    dgId: string | null;
+    playerName: string;
+    market: string;
+    opponents: string | null;
+  }>,
+  placed: Array<{
+    dgId: string | null;
+    playerName: string;
+    market: string;
+    opponents: string | null;
+    stakeUnits: number | null;
+  }>
 ) {
   const cap = BANKROLL_UNITS * 0.15;
-  const sumByPlayer = new Map<string, number>();
+  const sumByPlayerPending = new Map<string, number>();
+  const sumByPlayerPlaced = new Map<string, number>();
+  const sumByOpponentPending = new Map<string, number>();
+  const sumByOpponentPlaced = new Map<string, number>();
+
   for (const r of recalced) {
     const p = pending.find((x) => x.id === r.id);
     if (!p) continue;
     const key = playerKey(p.dgId, p.playerName);
-    sumByPlayer.set(key, (sumByPlayer.get(key) || 0) + r.stakeUnits);
+    sumByPlayerPending.set(key, (sumByPlayerPending.get(key) || 0) + r.stakeUnits);
+
+    const market = (p.market || "").toLowerCase();
+    if (market.includes("matchup")) {
+      for (const opp of splitOpponents(p.opponents)) {
+        const ok = playerKey(null, opp);
+        sumByOpponentPending.set(ok, (sumByOpponentPending.get(ok) || 0) + r.stakeUnits);
+      }
+    }
+    if (market.includes("miss cut")) {
+      const ok = playerKey(p.dgId, p.playerName);
+      sumByOpponentPending.set(ok, (sumByOpponentPending.get(ok) || 0) + r.stakeUnits);
+    }
   }
-  const placedByPlayer = new Map<string, number>();
+
   for (const p of placed) {
     const key = playerKey(p.dgId, p.playerName);
     const stake = Number(p.stakeUnits) || 0;
-    placedByPlayer.set(key, (placedByPlayer.get(key) || 0) + stake);
+    sumByPlayerPlaced.set(key, (sumByPlayerPlaced.get(key) || 0) + stake);
+
+    const market = (p.market || "").toLowerCase();
+    if (market.includes("matchup")) {
+      for (const opp of splitOpponents(p.opponents)) {
+        const ok = playerKey(null, opp);
+        sumByOpponentPlaced.set(ok, (sumByOpponentPlaced.get(ok) || 0) + stake);
+      }
+    }
+    if (market.includes("miss cut")) {
+      const ok = playerKey(p.dgId, p.playerName);
+      sumByOpponentPlaced.set(ok, (sumByOpponentPlaced.get(ok) || 0) + stake);
+    }
   }
+
   const factorByPlayer = new Map<string, number>();
-  for (const [k, sum] of sumByPlayer) {
-    const used = placedByPlayer.get(k) || 0;
+  for (const [k, sum] of sumByPlayerPending) {
+    const used = sumByPlayerPlaced.get(k) || 0;
     const remaining = cap - used;
     const f = sum > 0 ? Math.min(1, Math.max(0, remaining / sum)) : 1;
     factorByPlayer.set(k, f);
   }
+
+  const factorByOpponent = new Map<string, number>();
+  for (const [k, sum] of sumByOpponentPending) {
+    const used = sumByOpponentPlaced.get(k) || 0;
+    const remaining = cap - used;
+    const f = sum > 0 ? Math.min(1, Math.max(0, remaining / sum)) : 1;
+    factorByOpponent.set(k, f);
+  }
+
   return recalced.map((r) => {
     const p = pending.find((x) => x.id === r.id);
     if (!p) return r;
     const key = playerKey(p.dgId, p.playerName);
-    const f = factorByPlayer.get(key) ?? 1;
+    const fPlayer = factorByPlayer.get(key) ?? 1;
+    let fOpp = 1;
+    const market = (p.market || "").toLowerCase();
+    if (market.includes("matchup")) {
+      const opps = splitOpponents(p.opponents);
+      if (opps.length > 0) {
+        fOpp = Math.min(
+          ...opps.map((o) => factorByOpponent.get(playerKey(null, o)) ?? 1)
+        );
+      }
+    }
+    if (market.includes("miss cut")) {
+      fOpp = factorByOpponent.get(key) ?? 1;
+    }
+    const f = Math.min(fPlayer, fOpp);
     return { ...r, stakeUnits: r.stakeUnits * f };
   });
 }
@@ -74,8 +146,20 @@ async function recalcPending(eventId: string) {
 
   const withPlayerCap = applyPlayerCap(
     recalced,
-    pending.map((p) => ({ id: p.id, dgId: p.dgId, playerName: p.playerName })),
-    placed.map((p) => ({ dgId: p.dgId, playerName: p.playerName, stakeUnits: p.stakeUnits }))
+    pending.map((p) => ({
+      id: p.id,
+      dgId: p.dgId,
+      playerName: p.playerName,
+      market: p.market,
+      opponents: p.opponents,
+    })),
+    placed.map((p) => ({
+      dgId: p.dgId,
+      playerName: p.playerName,
+      market: p.market,
+      opponents: p.opponents,
+      stakeUnits: p.stakeUnits,
+    }))
   );
 
   for (const r of withPlayerCap) {
