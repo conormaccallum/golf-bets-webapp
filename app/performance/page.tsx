@@ -121,10 +121,10 @@ export default async function PerformancePage() {
                     background: "#000",
                   }}
                 >
-                  <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 900 }}>
+                  <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 1000 }}>
                     <thead>
                       <tr>
-                        {["Market", "Player", "Book", "Odds", "Stake", "Outcome", "Returns", "Settle"].map(
+                        {["Market", "Player", "Opponents", "Book", "Odds", "Stake", "Outcome", "Returns", "Settle"].map(
                           (hh) => (
                             <th
                               key={hh}
@@ -171,6 +171,16 @@ export default async function PerformancePage() {
                               }}
                             >
                               {b.playerName}
+                            </td>
+                            <td
+                              style={{
+                                padding: 10,
+                                borderBottom: "1px solid #222",
+                                whiteSpace: "nowrap",
+                                color: "white",
+                              }}
+                            >
+                              {b.opponents ?? ""}
                             </td>
                             <td
                               style={{

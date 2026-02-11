@@ -267,12 +267,13 @@ export default function BetslipPage() {
                 background: "#000",
               }}
             >
-              <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 1100 }}>
+              <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 1200 }}>
                 <thead>
                   <tr>
                     {[
                       "Market",
                       "Player",
+                      "Opponents",
                       "Model Odds",
                       "Book",
                       "Odds",
@@ -308,6 +309,9 @@ export default function BetslipPage() {
                         </td>
                         <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
                           {it.playerName}
+                        </td>
+                        <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                          {it.opponents ?? ""}
                         </td>
                         <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
                           {it.marketBookBest
@@ -420,12 +424,13 @@ export default function BetslipPage() {
                 background: "#000",
               }}
             >
-              <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 900 }}>
+              <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 1000 }}>
                 <thead>
                   <tr>
                     {[
                       "Market",
                       "Player",
+                      "Opponents",
                       "Book",
                       "Odds",
                       "Edge",
@@ -454,6 +459,9 @@ export default function BetslipPage() {
                     <tr key={it.id} style={{ background: idx % 2 === 0 ? "#000" : "#141414" }}>
                       <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{it.market}</td>
                       <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{it.playerName}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                        {it.opponents ?? ""}
+                      </td>
                       <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
                         {it.marketBookBest ?? ""}
                       </td>
