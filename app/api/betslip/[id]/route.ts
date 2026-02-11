@@ -7,10 +7,53 @@ import {
   stakeMultiplierForMarket,
 } from "@/lib/staking";
 
+function playerKey(dgId: string | null, playerName: string) {
+  return dgId ? `dg:${dgId}` : `name:${playerName}`;
+}
+
+function applyPlayerCap(
+  recalced: Array<{ id: string; stakeUnits: number }>,
+  pending: Array<{ id: string; dgId: string | null; playerName: string }>,
+  placed: Array<{ dgId: string | null; playerName: string; stakeUnits: number | null }>
+) {
+  const cap = BANKROLL_UNITS * 0.15;
+  const sumByPlayer = new Map<string, number>();
+  for (const r of recalced) {
+    const p = pending.find((x) => x.id === r.id);
+    if (!p) continue;
+    const key = playerKey(p.dgId, p.playerName);
+    sumByPlayer.set(key, (sumByPlayer.get(key) || 0) + r.stakeUnits);
+  }
+  const placedByPlayer = new Map<string, number>();
+  for (const p of placed) {
+    const key = playerKey(p.dgId, p.playerName);
+    const stake = Number(p.stakeUnits) || 0;
+    placedByPlayer.set(key, (placedByPlayer.get(key) || 0) + stake);
+  }
+  const factorByPlayer = new Map<string, number>();
+  for (const [k, sum] of sumByPlayer) {
+    const used = placedByPlayer.get(k) || 0;
+    const remaining = cap - used;
+    const f = sum > 0 ? Math.min(1, Math.max(0, remaining / sum)) : 1;
+    factorByPlayer.set(k, f);
+  }
+  return recalced.map((r) => {
+    const p = pending.find((x) => x.id === r.id);
+    if (!p) return r;
+    const key = playerKey(p.dgId, p.playerName);
+    const f = factorByPlayer.get(key) ?? 1;
+    return { ...r, stakeUnits: r.stakeUnits * f };
+  });
+}
+
 async function recalcPending(eventId: string) {
   const prisma = getPrisma();
   const pending = await prisma.betslipItem.findMany({
     where: { eventId, status: "PENDING" },
+    orderBy: { createdAt: "asc" },
+  });
+  const placed = await prisma.betslipItem.findMany({
+    where: { eventId, status: "PLACED" },
     orderBy: { createdAt: "asc" },
   });
 
@@ -29,7 +72,13 @@ async function recalcPending(eventId: string) {
     };
   });
 
-  for (const r of recalced) {
+  const withPlayerCap = applyPlayerCap(
+    recalced,
+    pending.map((p) => ({ id: p.id, dgId: p.dgId, playerName: p.playerName })),
+    placed.map((p) => ({ dgId: p.dgId, playerName: p.playerName, stakeUnits: p.stakeUnits }))
+  );
+
+  for (const r of withPlayerCap) {
     const cap = BANKROLL_UNITS * MAX_BET_FRAC;
     let stake = r.stakeUnits;
     if (stake > cap) stake = cap;
