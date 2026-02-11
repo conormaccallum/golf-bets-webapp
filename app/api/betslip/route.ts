@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
 import { parseCsv, rowsToObjects, toNumber } from "@/lib/csv";
-import { computeStakeUnits, BANKROLL_UNITS, MIN_EDGE, MAX_BET_FRAC } from "@/lib/staking";
+import {
+  computeStakeUnits,
+  BANKROLL_UNITS,
+  MIN_EDGE,
+  MAX_BET_FRAC,
+  stakeMultiplierForMarket,
+} from "@/lib/staking";
 
 const OUTPUT_BASE = process.env.OUTPUT_BASE_URL || "";
 
@@ -45,13 +51,14 @@ async function recalcPending(eventId: string) {
     const oddsDec = b.marketOddsBestDec ?? b.oddsEnteredDec ?? 0;
     const p = b.pModel ?? 0;
     const { edge, evPerUnit, kellyFull, kellyFrac, stakeRaw } = computeStakeUnits(p, oddsDec);
+    const stakeMult = stakeMultiplierForMarket(b.market);
     return {
       id: b.id,
       edgeProb: edge,
       evPerUnit,
       kellyFull,
       kellyFrac,
-      stakeUnits: stakeRaw,
+      stakeUnits: stakeRaw * stakeMult,
     };
   });
 
@@ -166,8 +173,9 @@ async function syncPendingFromOutputs(eventId: string) {
     const oddsForStake = b.oddsEnteredDec ?? marketOddsBestDec ?? 0;
     const pForStake = pModel ?? 0;
     const { edge, evPerUnit, kellyFull, kellyFrac, stakeRaw } = computeStakeUnits(pForStake, oddsForStake);
+    const stakeMult = stakeMultiplierForMarket(b.market);
     const cap = BANKROLL_UNITS * MAX_BET_FRAC;
-    let stake = stakeRaw;
+    let stake = stakeRaw * stakeMult;
     if (stake > cap) stake = cap;
 
     await prisma.betslipItem.update({

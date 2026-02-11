@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
-import { computeStakeUnits, BANKROLL_UNITS, MAX_BET_FRAC } from "@/lib/staking";
+import {
+  computeStakeUnits,
+  BANKROLL_UNITS,
+  MAX_BET_FRAC,
+  stakeMultiplierForMarket,
+} from "@/lib/staking";
 
 async function recalcPending(eventId: string) {
   const prisma = getPrisma();
@@ -13,13 +18,14 @@ async function recalcPending(eventId: string) {
     const oddsDec = b.oddsEnteredDec ?? b.marketOddsBestDec ?? 0;
     const p = b.pModel ?? 0;
     const { edge, evPerUnit, kellyFull, kellyFrac, stakeRaw } = computeStakeUnits(p, oddsDec);
+    const stakeMult = stakeMultiplierForMarket(b.market);
     return {
       id: b.id,
       edgeProb: edge,
       evPerUnit,
       kellyFull,
       kellyFrac,
-      stakeUnits: stakeRaw,
+      stakeUnits: stakeRaw * stakeMult,
     };
   });
 
