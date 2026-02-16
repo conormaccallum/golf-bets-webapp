@@ -5,8 +5,8 @@ export const MIN_EDGE = 0.04;
 
 export const MARKET_STAKE_MULTIPLIERS = {
   default: 1.0,
-  matchup2: 0.7,
-  matchup3: 0.6,
+  matchup2: 0.5,
+  matchup3: 0.4,
 };
 
 export function stakeMultiplierForMarket(market?: string): number {
