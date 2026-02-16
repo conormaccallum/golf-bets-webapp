@@ -4,8 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Button, HeaderNav } from "../components/ui";
 
 const MIN_EDGE = 0.04;
-const MIN_EDGE_MATCHUP_2B = 0.06;
-const MIN_EDGE_MATCHUP_3B = 0.08;
+const MIN_EDGE_MATCHUP_2B = 0.0784;
+const MIN_EDGE_MATCHUP_3B = 0.1153;
 
 type BetslipItem = {
   id: string;
