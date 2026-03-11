@@ -72,6 +72,12 @@ function transformValueTable(raw: TableData | null, market: Market): TableData |
     "odds",
   ]);
 
+  const idxMarketProb = pickIndex(h, [
+    "market_prob_best",
+    "market_prob",
+    "implied_prob",
+  ]);
+
   const idxModelProb =
     market === "top20"
       ? pickIndex(h, [
@@ -115,8 +121,9 @@ function transformValueTable(raw: TableData | null, market: Market): TableData |
     const modelProb = idxModelProb >= 0 ? toNumber(r[idxModelProb]) : null;
     const odds = idxOdds >= 0 ? toNumber(r[idxOdds]) : null;
     const book = idxBook >= 0 ? (r[idxBook] ?? "") : "";
+    const marketProb = idxMarketProb >= 0 ? toNumber(r[idxMarketProb]) : null;
 
-    const impliedProb = odds && odds > 0 ? 1 / odds : null;
+    const impliedProb = odds && odds > 0 ? 1 / odds : marketProb;
     const edgeCsv = idxEdge >= 0 ? toNumber(r[idxEdge]) : null;
     const edge = edgeCsv !== null ? edgeCsv : (modelProb !== null && impliedProb !== null ? modelProb - impliedProb : null);
 
@@ -199,6 +206,7 @@ function transformMatchupTable(raw: TableData | null): TableData | null {
 
 export default function ValueScreensPage() {
   const [market, setMarket] = useState<Market>("top20");
+  const [tour, setTour] = useState<"pga" | "dp">("pga");
   const [rawTable, setRawTable] = useState<TableData | null>(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState<string>("");
@@ -213,7 +221,7 @@ export default function ValueScreensPage() {
     setLoading(true);
     setStatus("Loading...");
     try {
-      const res = await fetch("/api/run", { method: "POST" });
+      const res = await fetch(`/api/run?tour=${tour}`, { method: "POST" });
       const json = await res.json();
       if (!json?.ok) throw new Error(json?.error ?? "API error");
 
@@ -223,7 +231,15 @@ export default function ValueScreensPage() {
       if (market === "matchup_2b") setRawTable(json.tables?.matchup2 ?? null);
       if (market === "matchup_3b") setRawTable(json.tables?.matchup3 ?? null);
 
-      setStatus("Loaded");
+      const isMatchup = market === "matchup_2b" || market === "matchup_3b";
+      const table = isMatchup
+        ? (market === "matchup_2b" ? json.tables?.matchup2 : json.tables?.matchup3)
+        : null;
+      if (isMatchup && table && Array.isArray(table.rows) && table.rows.length === 0) {
+        setStatus("No matchup odds available for this event.");
+      } else {
+        setStatus("Loaded");
+      }
     } catch (e: any) {
       setStatus(e?.message ?? "Failed to load");
       setRawTable(null);
@@ -235,12 +251,12 @@ export default function ValueScreensPage() {
   useEffect(() => {
     load(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [market]);
+  }, [market, tour]);
 
   useEffect(() => {
     async function loadLock() {
       try {
-        const res = await fetch("/api/data/event_meta.json", { cache: "no-store" });
+        const res = await fetch(`/api/data/event_meta.json?tour=${tour}`, { cache: "no-store" });
         if (!res.ok) return;
         const meta = await res.json();
         const lockDay = String(meta?.refreshLockDay ?? "").toUpperCase();
@@ -259,7 +275,7 @@ export default function ValueScreensPage() {
       }
     }
     loadLock();
-  }, []);
+  }, [tour]);
 
   const displayTable = useMemo(() => transformValueTable(rawTable, market), [rawTable, market]);
 
@@ -269,7 +285,39 @@ export default function ValueScreensPage() {
       <HeaderNav />
 
       <main style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
-        <h1 style={{ marginTop: 0, fontWeight: 700, fontSize: 28 }}>Value Screens</h1>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <h1 style={{ marginTop: 0, fontWeight: 700, fontSize: 28 }}>Value Screens</h1>
+          <div style={{ display: "flex", gap: 6 }}>
+            <button
+              onClick={() => setTour("pga")}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 10,
+                border: "1px solid #f3b44b",
+                background: tour === "pga" ? "#f3b44b" : "transparent",
+                color: tour === "pga" ? "#111" : "#f3b44b",
+                cursor: "pointer",
+                fontWeight: 700,
+              }}
+            >
+              PGA
+            </button>
+            <button
+              onClick={() => setTour("dp")}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 10,
+                border: "1px solid #f3b44b",
+                background: tour === "dp" ? "#f3b44b" : "transparent",
+                color: tour === "dp" ? "#111" : "#f3b44b",
+                cursor: "pointer",
+                fontWeight: 700,
+              }}
+            >
+              DP World Tour
+            </button>
+          </div>
+        </div>
 
         <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
           <select
