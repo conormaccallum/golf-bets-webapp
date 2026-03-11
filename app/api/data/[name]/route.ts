@@ -2,15 +2,22 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   context: { params: Promise<{ name: string }> }
 ) {
   const { name } = await context.params;
 
-  const base = process.env.OUTPUT_BASE_URL;
-  if (!base) {
+  const baseRaw = process.env.OUTPUT_BASE_URL;
+  if (!baseRaw) {
     return NextResponse.json({ error: "OUTPUT_BASE_URL not set" }, { status: 500 });
   }
+  const tour = (() => {
+    const t = (req.nextUrl.searchParams.get("tour") || "").toLowerCase();
+    if (t === "dp" || t === "dpwt" || t === "euro") return "dp";
+    return "pga";
+  })();
+  const baseTour = `${baseRaw}/${tour}`;
+  const baseFlat = baseRaw;
 
   const allowed = new Set([
     "latest_betslip.csv",
@@ -28,14 +35,20 @@ export async function GET(
     return NextResponse.json({ error: "Not allowed" }, { status: 400 });
   }
 
-  const url = `${base}/${name}?t=${Date.now()}`;
-  const res = await fetch(url, { cache: "no-store" });
+  const urlTour = `${baseTour}/${name}?t=${Date.now()}`;
+  const urlFlat = `${baseFlat}/${name}?t=${Date.now()}`;
+  let res = await fetch(urlTour, { cache: "no-store" });
 
   if (!res.ok) {
-    return NextResponse.json(
-      { error: `Failed to fetch ${name}`, status: res.status },
-      { status: 502 }
-    );
+    const res2 = await fetch(urlFlat, { cache: "no-store" });
+    if (res2.ok) {
+      res = res2;
+    } else {
+      return NextResponse.json(
+        { error: `Failed to fetch ${name}`, status: res2.status },
+        { status: 502 }
+      );
+    }
   }
 
   const body = await res.text();

@@ -18,6 +18,16 @@ function pickUrl(tour: string, name: string, cacheBust: number) {
   return `${OUTPUT_BASE}/${tour}/${name}?t=${cacheBust}`;
 }
 
+
+async function fetchWithFallback(tour: string, name: string, cacheBust: number) {
+  const primary = `${OUTPUT_BASE}/${tour}/${name}?t=${cacheBust}`;
+  const fallback = `${OUTPUT_BASE}/${name}?t=${cacheBust}`;
+  const res = await fetch(primary, { cache: "no-store" });
+  if (res.ok || res.status !== 404) return res;
+  const res2 = await fetch(fallback, { cache: "no-store" });
+  return res2.ok ? res2 : res;
+}
+
 function normalizeMarketName(name: string) {
   if (name === "top20") return "Top 20";
   if (name === "makeCut") return "Make Cut";
@@ -33,14 +43,14 @@ export async function GET(req: Request) {
     const cacheBust = Date.now();
     const url = new URL(req.url);
     const tour = normalizeTour(url.searchParams.get("tour"));
-    const metaRes = await fetch(pickUrl(tour, "event_meta.json", cacheBust), { cache: "no-store" });
+    const metaRes = await fetchWithFallback(tour, "event_meta.json", cacheBust);
     if (!metaRes.ok) {
       return NextResponse.json({ error: "event_meta.json not found" }, { status: 500 });
     }
     const meta = await metaRes.json();
     let lastUpdated: string | null = null;
     try {
-      const runMetaRes = await fetch(pickUrl(tour, "run_meta.json", cacheBust), { cache: "no-store" });
+      const runMetaRes = await fetchWithFallback(tour, "run_meta.json", cacheBust);
       if (runMetaRes.ok) {
         const runMeta = await runMetaRes.json();
         lastUpdated =
@@ -55,7 +65,7 @@ export async function GET(req: Request) {
         if (lmMeta) lastUpdated = lmMeta;
       }
       if (!lastUpdated) {
-        const res2 = await fetch(pickUrl(tour, "latest_betslip.csv", cacheBust), { cache: "no-store" });
+        const res2 = await fetchWithFallback(tour, "latest_betslip.csv", cacheBust);
         const lm2 = res2.headers.get("last-modified") || res2.headers.get("date");
         if (lm2) lastUpdated = lm2;
         if (!lastUpdated) {
@@ -83,7 +93,7 @@ export async function GET(req: Request) {
     const all: any[] = [];
 
     for (const m of markets) {
-      const res = await fetch(pickUrl(tour, m.file, cacheBust), { cache: "no-store" });
+      const res = await fetchWithFallback(tour, m.file, cacheBust);
       if (!res.ok) continue;
       const csv = await res.text();
       const { headers, rows } = parseCsv(csv);

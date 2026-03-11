@@ -4,13 +4,25 @@ import { getPrisma } from "@/lib/prisma";
 const OUTPUT_BASE = process.env.OUTPUT_BASE_URL || "";
 const ARCHIVE_TOKEN = process.env.ARCHIVE_TOKEN || "";
 const ALLOW_MANUAL_ARCHIVE = process.env.ALLOW_MANUAL_ARCHIVE === "true";
+const DEFAULT_TOUR = "pga";
 
-function pickUrl(name: string) {
-  return `${OUTPUT_BASE}/${name}`;
+function normalizeTour(input: string | null) {
+  const t = (input || "").toLowerCase();
+  if (t === "dp" || t === "dpwt" || t === "euro") return "dp";
+  return "pga";
 }
 
-async function getMeta() {
-  const res = await fetch(pickUrl("event_meta.json"), { cache: "no-store" });
+async function fetchFromOutputs(tour: string, name: string): Promise<Response> {
+  const primary = `${OUTPUT_BASE}/${tour}/${name}?t=${Date.now()}`;
+  const fallback = `${OUTPUT_BASE}/${name}?t=${Date.now()}`;
+  const res = await fetch(primary, { cache: "no-store" });
+  if (res.ok || res.status !== 404) return res;
+  const res2 = await fetch(fallback, { cache: "no-store" });
+  return res2.ok ? res2 : res;
+}
+
+async function getMeta(tour: string) {
+  const res = await fetchFromOutputs(tour, "event_meta.json");
   if (!res.ok) throw new Error("event_meta.json not found");
   return res.json();
 }
@@ -25,9 +37,11 @@ export async function POST(req: Request) {
   }
   try {
     const prisma = getPrisma();
-    const meta = await getMeta();
+    const url = new URL(req.url);
+    const tour = normalizeTour(url.searchParams.get("tour") || DEFAULT_TOUR);
+    const meta = await getMeta(tour);
     const placed = await prisma.betslipItem.findMany({
-      where: { eventId: meta.eventId, status: "PLACED", archivedAt: null },
+      where: { tour, eventId: meta.eventId, status: "PLACED", archivedAt: null },
     });
 
     if (placed.length === 0) {
@@ -36,13 +50,14 @@ export async function POST(req: Request) {
 
     const label = `${meta.eventName} ${meta.eventYear}`;
     const week = await prisma.week.upsert({
-      where: { eventId: meta.eventId },
+      where: { eventId_tour: { eventId: meta.eventId, tour } },
       update: { label, eventName: meta.eventName, eventYear: meta.eventYear },
       create: {
         label,
         eventId: meta.eventId,
         eventName: meta.eventName,
         eventYear: meta.eventYear,
+        tour,
       },
     });
 
@@ -58,6 +73,7 @@ export async function POST(req: Request) {
         data: {
           weekId: week.id,
           betType: b.market,
+          tour,
           playerName: b.playerName,
           dgId: Number.isFinite(dgIdNum as number) ? (dgIdNum as number) : null,
           marketBookBest: b.marketBookBest ?? "",
@@ -73,10 +89,10 @@ export async function POST(req: Request) {
     }
 
     if (clearAfter) {
-      await prisma.betslipItem.deleteMany({ where: { eventId: meta.eventId } });
+      await prisma.betslipItem.deleteMany({ where: { tour, eventId: meta.eventId } });
     } else {
       await prisma.betslipItem.updateMany({
-        where: { eventId: meta.eventId, status: "PLACED", archivedAt: null },
+        where: { tour, eventId: meta.eventId, status: "PLACED", archivedAt: null },
         data: { archivedAt: new Date() },
       });
     }

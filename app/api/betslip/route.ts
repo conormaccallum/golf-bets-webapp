@@ -10,9 +10,21 @@ import {
 } from "@/lib/staking";
 
 const OUTPUT_BASE = process.env.OUTPUT_BASE_URL || "";
+const DEFAULT_TOUR = "pga";
 
-function pickUrl(name: string) {
-  return `${OUTPUT_BASE}/${name}`;
+function normalizeTour(input: string | null | undefined) {
+  const t = (input || "").toLowerCase();
+  if (t === "dp" || t === "dpwt" || t === "euro") return "dp";
+  return "pga";
+}
+
+async function fetchFromOutputs(tour: string, name: string): Promise<Response> {
+  const primary = `${OUTPUT_BASE}/${tour}/${name}?t=${Date.now()}`;
+  const fallback = `${OUTPUT_BASE}/${name}?t=${Date.now()}`;
+  const res = await fetch(primary, { cache: "no-store" });
+  if (res.ok || res.status !== 404) return res;
+  const res2 = await fetch(fallback, { cache: "no-store" });
+  return res2.ok ? res2 : res;
 }
 
 function normalizeMarketName(name: string) {
@@ -24,20 +36,21 @@ function normalizeMarketName(name: string) {
   return name;
 }
 
-async function getMeta() {
-  const res = await fetch(pickUrl("event_meta.json"), { cache: "no-store" });
+async function getMeta(tour: string) {
+  const res = await fetchFromOutputs(tour, "event_meta.json");
   if (!res.ok) throw new Error("event_meta.json not found");
   return res.json();
 }
 
 function makeUniqueKey(input: {
+  tour: string;
   eventId: string;
   market: string;
   dgId: string | null;
   playerName: string;
   opponents?: string | null;
 }) {
-  return [input.eventId, input.market, input.dgId || "", input.playerName, input.opponents || ""].join("|");
+  return [input.tour, input.eventId, input.market, input.dgId || "", input.playerName, input.opponents || ""].join("|");
 }
 
 function playerKey(dgId: string | null, playerName: string) {
@@ -150,14 +163,14 @@ function applyPlayerCap<T extends { id: string; stakeUnits: number }>(
   });
 }
 
-async function recalcPending(eventId: string) {
+async function recalcPending(tour: string, eventId: string) {
   const prisma = getPrisma();
   const pending = await prisma.betslipItem.findMany({
-    where: { eventId, status: "PENDING" },
+    where: { tour, eventId, status: "PENDING" },
     orderBy: { createdAt: "asc" },
   });
   const placed = await prisma.betslipItem.findMany({
-    where: { eventId, status: "PLACED" },
+    where: { tour, eventId, status: "PLACED" },
     orderBy: { createdAt: "asc" },
   });
 
@@ -211,7 +224,7 @@ async function recalcPending(eventId: string) {
   }
 }
 
-async function buildOutputMap(eventId: string) {
+async function buildOutputMap(tour: string, eventId: string) {
   const markets = [
     { key: "top20", file: "latest_value_top20.csv" },
     { key: "makeCut", file: "latest_value_make_cut.csv" },
@@ -231,7 +244,7 @@ async function buildOutputMap(eventId: string) {
   >();
 
   for (const m of markets) {
-    const res = await fetch(pickUrl(m.file), { cache: "no-store" });
+    const res = await fetchFromOutputs(tour, m.file);
     if (!res.ok) continue;
     const csv = await res.text();
     const { headers, rows } = parseCsv(csv);
@@ -252,6 +265,7 @@ async function buildOutputMap(eventId: string) {
       const dgId = dgIdRaw ? String(dgIdRaw) : null;
       const market = normalizeMarketName(m.key);
       const uniqueKey = makeUniqueKey({
+        tour,
         eventId,
         market,
         dgId,
@@ -285,67 +299,86 @@ async function buildOutputMap(eventId: string) {
   return map;
 }
 
-async function syncPendingFromOutputs(eventId: string) {
+async function syncPendingFromOutputs() {
   const prisma = getPrisma();
-  const outputs = await buildOutputMap(eventId);
   const pending = await prisma.betslipItem.findMany({
-    where: { eventId, status: "PENDING" },
+    where: { status: "PENDING" },
     orderBy: { createdAt: "asc" },
   });
 
-  for (const b of pending) {
-    const fromOut = outputs.get(b.uniqueKey);
-    if (!fromOut) continue;
-
-    const marketOddsBestDec =
-      fromOut.marketOddsBestDec ?? (b.marketOddsBestDec ?? b.oddsEnteredDec ?? null);
-    const marketBookBest = fromOut.marketBookBest ?? b.marketBookBest ?? null;
-    const pModel = fromOut.pModel ?? b.pModel ?? null;
-
-    const oddsForStake = b.oddsEnteredDec ?? marketOddsBestDec ?? 0;
-    const pForStake = pModel ?? 0;
-    const { edge, evPerUnit, kellyFull, kellyFrac, stakeRaw } = computeStakeUnits(pForStake, oddsForStake);
-    const stakeMult = stakeMultiplierForMarket(b.market);
-    const cap = BANKROLL_UNITS * MAX_BET_FRAC;
-    let stake = stakeRaw * stakeMult;
-    if (stake > cap) stake = cap;
-
-    await prisma.betslipItem.update({
-      where: { id: b.id },
-      data: {
-        marketOddsBestDec,
-        marketBookBest,
-        pModel,
-        edgeProb: edge,
-        evPerUnit,
-        kellyFull,
-        kellyFrac,
-        stakeUnits: Number.isFinite(stake) ? stake : 0,
-      },
-    });
+  const byTour = new Map<string, typeof pending>();
+  for (const p of pending) {
+    const t = normalizeTour(p.tour);
+    if (!byTour.has(t)) byTour.set(t, []);
+    byTour.get(t)!.push(p);
   }
 
-  // apply player cap after syncing odds/model fields
-  await recalcPending(eventId);
+  for (const [tour, items] of byTour.entries()) {
+    let meta: any;
+    try {
+      meta = await getMeta(tour);
+    } catch {
+      continue;
+    }
+    if (!meta?.eventId) continue;
+    const outputs = await buildOutputMap(tour, meta.eventId);
+
+    for (const b of items) {
+      if (b.eventId !== meta.eventId) continue;
+      const fromOut = outputs.get(b.uniqueKey);
+      if (!fromOut) continue;
+
+      const marketOddsBestDec =
+        fromOut.marketOddsBestDec ?? (b.marketOddsBestDec ?? b.oddsEnteredDec ?? null);
+      const marketBookBest = fromOut.marketBookBest ?? b.marketBookBest ?? null;
+      const pModel = fromOut.pModel ?? b.pModel ?? null;
+
+      const oddsForStake = b.oddsEnteredDec ?? marketOddsBestDec ?? 0;
+      const pForStake = pModel ?? 0;
+      const { edge, evPerUnit, kellyFull, kellyFrac, stakeRaw } = computeStakeUnits(pForStake, oddsForStake);
+      const stakeMult = stakeMultiplierForMarket(b.market);
+      const cap = BANKROLL_UNITS * MAX_BET_FRAC;
+      let stake = stakeRaw * stakeMult;
+      if (stake > cap) stake = cap;
+
+      await prisma.betslipItem.update({
+        where: { id: b.id },
+        data: {
+          marketOddsBestDec,
+          marketBookBest,
+          pModel,
+          edgeProb: edge,
+          evPerUnit,
+          kellyFull,
+          kellyFrac,
+          stakeUnits: Number.isFinite(stake) ? stake : 0,
+        },
+      });
+    }
+
+    await recalcPending(tour, meta.eventId);
+  }
 }
 
 export async function GET(req: Request) {
   try {
     const prisma = getPrisma();
-    const meta = await getMeta();
     const url = new URL(req.url);
     const sync = url.searchParams.get("sync") === "1";
+    const tour = normalizeTour(url.searchParams.get("tour") || DEFAULT_TOUR);
     if (sync) {
-      await syncPendingFromOutputs(meta.eventId);
+      await syncPendingFromOutputs();
     }
     const items = await prisma.betslipItem.findMany({
-      where: { eventId: meta.eventId },
+      where: { tour },
       orderBy: [{ status: "asc" }, { createdAt: "asc" }],
     });
+    const meta = await getMeta(tour);
     return NextResponse.json({
       ok: true,
       meta,
       eventMeta: meta,
+      tour,
       items,
       bankrollUnits: BANKROLL_UNITS,
       minEdge: MIN_EDGE,
@@ -358,12 +391,14 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     const prisma = getPrisma();
-    const meta = await getMeta();
     const body = await req.json();
+    const tour = normalizeTour(body.tour || DEFAULT_TOUR);
+    const meta = await getMeta(tour);
     const dgId = body.dgId !== undefined && body.dgId !== null && body.dgId !== ""
       ? String(body.dgId)
       : null;
     const uniqueKey = makeUniqueKey({
+      tour,
       eventId: meta.eventId,
       market: body.market,
       dgId,
@@ -376,6 +411,7 @@ export async function POST(req: Request) {
       update: {},
       create: {
         uniqueKey,
+        tour,
         eventId: meta.eventId,
         eventName: meta.eventName,
         eventYear: meta.eventYear,
@@ -391,7 +427,7 @@ export async function POST(req: Request) {
       },
     });
 
-    await recalcPending(meta.eventId);
+    await recalcPending(tour, meta.eventId);
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "failed" }, { status: 500 });

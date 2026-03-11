@@ -3,6 +3,14 @@ import { getPrisma } from "../../../lib/prisma";
 
 type TableData = { headers: string[]; rows: string[][] };
 
+const DEFAULT_TOUR = "pga";
+
+function normalizeTour(input: string | null) {
+  const t = (input || "").toLowerCase();
+  if (t === "dp" || t === "dpwt" || t === "euro") return "dp";
+  return "pga";
+}
+
 function parseCsv(text: string): TableData {
   const lines = text.split(/\r?\n/).filter((l) => l.length > 0);
   if (!lines.length) return { headers: [], rows: [] };
@@ -63,16 +71,24 @@ function toInt(v: string | undefined): number | null {
   return Number.isFinite(n) ? Math.trunc(n) : null;
 }
 
-async function fetchTextFromBase(base: string, name: string): Promise<string> {
-  const url = `${base}/${name}`;
-  const res = await fetch(url, { cache: "no-store" });
+async function fetchTextFromOutputs(baseRaw: string, tour: string, name: string): Promise<string> {
+  const primary = `${baseRaw}/${tour}/${name}`;
+  const fallback = `${baseRaw}/${name}`;
+  let res = await fetch(primary, { cache: "no-store" });
+  if (!res.ok && res.status === 404) {
+    res = await fetch(fallback, { cache: "no-store" });
+  }
   if (!res.ok) throw new Error(`Failed to fetch ${name} (${res.status})`);
   return res.text();
 }
 
-async function fetchJsonFromBase<T>(base: string, name: string): Promise<T> {
-  const url = `${base}/${name}`;
-  const res = await fetch(url, { cache: "no-store" });
+async function fetchJsonFromOutputs<T>(baseRaw: string, tour: string, name: string): Promise<T> {
+  const primary = `${baseRaw}/${tour}/${name}`;
+  const fallback = `${baseRaw}/${name}`;
+  let res = await fetch(primary, { cache: "no-store" });
+  if (!res.ok && res.status === 404) {
+    res = await fetch(fallback, { cache: "no-store" });
+  }
   if (!res.ok) throw new Error(`Failed to fetch ${name} (${res.status})`);
   return res.json();
 }
@@ -81,16 +97,17 @@ export async function POST(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const force = searchParams.get("force") === "1";
+    const tour = normalizeTour(searchParams.get("tour") || DEFAULT_TOUR);
 
-    const base = process.env.OUTPUT_BASE_URL;
-    if (!base) {
+    const baseRaw = process.env.OUTPUT_BASE_URL;
+    if (!baseRaw) {
       return NextResponse.json(
         { ok: false, error: "OUTPUT_BASE_URL not set" },
         { status: 500 }
       );
     }
 
-    const meta = await fetchJsonFromBase<any>(base, "event_meta.json");
+    const meta = await fetchJsonFromOutputs<any>(baseRaw, tour, "event_meta.json");
     const eventId = String(meta?.eventId ?? "").trim();
     const eventName = String(meta?.eventName ?? "").trim();
     const eventYear = Number(meta?.eventYear ?? 0);
@@ -102,7 +119,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const betslipCsv = await fetchTextFromBase(base, "latest_betslip.csv");
+    const betslipCsv = await fetchTextFromOutputs(baseRaw, tour, "latest_betslip.csv");
     const table = parseCsv(betslipCsv);
 
     if (!table.headers.length) {
