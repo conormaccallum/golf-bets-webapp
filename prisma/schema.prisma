@@ -15,11 +15,13 @@ model Week {
   label     String
   eventName String
   eventYear Int
-  eventId   String   @unique
+  eventId   String
+  tour      String   @default("pga")
 
   bets      Bet[]
 
   @@index([createdAt])
+  @@unique([eventId, tour], name: "eventId_tour")
 }
 
 model Bet {
@@ -29,6 +31,7 @@ model Bet {
 
   placedAtUtc        String?
   betType            String
+  tour               String   @default("pga")
   playerName         String
   dgId               Int?
   marketBookBest     String?
@@ -58,6 +61,7 @@ model BetslipItem {
   eventId            String
   eventName          String
   eventYear          Int
+  tour               String        @default("pga")
   market             String
   playerName         String
   dgId               String?
