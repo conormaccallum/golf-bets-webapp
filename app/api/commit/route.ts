@@ -191,7 +191,7 @@ export async function POST(req: Request) {
 
     const prisma = getPrisma();
 
-    const existing = await prisma.week.findUnique({ where: { eventId } });
+    const existing = await prisma.week.findUnique({ where: { eventId_tour: { eventId, tour } } });
     if (existing && !force) {
       return NextResponse.json(
         { ok: false, error: `Week already committed for eventId ${eventId}` },
