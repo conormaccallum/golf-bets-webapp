@@ -3,12 +3,19 @@ import { parseCsv, rowsToObjects, toNumber } from "@/lib/csv";
 import { getPrisma } from "@/lib/prisma";
 
 const OUTPUT_BASE = process.env.OUTPUT_BASE_URL || "";
+const DEFAULT_TOUR = "pga";
+
+function normalizeTour(input: string | null) {
+  const t = (input || "").toLowerCase();
+  if (t === "dp" || t === "dpwt" || t === "euro") return "dp";
+  return "pga";
+}
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-function pickUrl(name: string, cacheBust: number) {
-  return `${OUTPUT_BASE}/${name}?t=${cacheBust}`;
+function pickUrl(tour: string, name: string, cacheBust: number) {
+  return `${OUTPUT_BASE}/${tour}/${name}?t=${cacheBust}`;
 }
 
 function normalizeMarketName(name: string) {
@@ -20,33 +27,35 @@ function normalizeMarketName(name: string) {
   return name;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const prisma = getPrisma();
     const cacheBust = Date.now();
-    const metaRes = await fetch(pickUrl("event_meta.json", cacheBust), { cache: "no-store" });
+    const url = new URL(req.url);
+    const tour = normalizeTour(url.searchParams.get("tour"));
+    const metaRes = await fetch(pickUrl(tour, "event_meta.json", cacheBust), { cache: "no-store" });
     if (!metaRes.ok) {
       return NextResponse.json({ error: "event_meta.json not found" }, { status: 500 });
     }
     const meta = await metaRes.json();
     let lastUpdated: string | null = null;
     try {
-      const lmMeta = metaRes.headers.get("last-modified");
-      if (lmMeta) lastUpdated = lmMeta;
-      if (!lastUpdated) {
-        const runMetaRes = await fetch(pickUrl("run_meta.json", cacheBust), { cache: "no-store" });
-        if (runMetaRes.ok) {
-          const runMeta = await runMetaRes.json();
-          lastUpdated =
-            runMeta.runAt ||
-            runMeta.generatedAt ||
-            runMeta.updatedAt ||
-            runMeta.lastRunAt ||
-            null;
-        }
+      const runMetaRes = await fetch(pickUrl(tour, "run_meta.json", cacheBust), { cache: "no-store" });
+      if (runMetaRes.ok) {
+        const runMeta = await runMetaRes.json();
+        lastUpdated =
+          runMeta.runAt ||
+          runMeta.generatedAt ||
+          runMeta.updatedAt ||
+          runMeta.lastRunAt ||
+          null;
       }
       if (!lastUpdated) {
-        const res2 = await fetch(pickUrl("latest_betslip.csv", cacheBust), { cache: "no-store" });
+        const lmMeta = metaRes.headers.get("last-modified");
+        if (lmMeta) lastUpdated = lmMeta;
+      }
+      if (!lastUpdated) {
+        const res2 = await fetch(pickUrl(tour, "latest_betslip.csv", cacheBust), { cache: "no-store" });
         const lm2 = res2.headers.get("last-modified") || res2.headers.get("date");
         if (lm2) lastUpdated = lm2;
         if (!lastUpdated) {
@@ -74,7 +83,7 @@ export async function GET() {
     const all: any[] = [];
 
     for (const m of markets) {
-      const res = await fetch(pickUrl(m.file, cacheBust), { cache: "no-store" });
+      const res = await fetch(pickUrl(tour, m.file, cacheBust), { cache: "no-store" });
       if (!res.ok) continue;
       const csv = await res.text();
       const { headers, rows } = parseCsv(csv);
@@ -101,13 +110,14 @@ export async function GET() {
     const top = all.slice(0, 20);
 
     const betslipItems = await prisma.betslipItem.findMany({
-      where: { eventId: meta.eventId },
+      where: { eventId: meta.eventId, tour },
       select: { uniqueKey: true },
     });
     const betslipKeys = betslipItems.map((b) => b.uniqueKey);
 
     return NextResponse.json({
       meta,
+      tour,
       lastUpdated,
       summary: {
         top,
