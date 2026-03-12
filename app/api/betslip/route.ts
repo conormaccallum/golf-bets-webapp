@@ -175,7 +175,7 @@ async function recalcPending(tour: string, eventId: string) {
   });
 
   const recalced = pending.map((b) => {
-    const oddsDec = b.marketOddsBestDec ?? b.oddsEnteredDec ?? 0;
+    const oddsDec = b.oddsEnteredDec ?? b.marketOddsBestDec ?? 0;
     const p = b.pModel ?? 0;
     const { edge, evPerUnit, kellyFull, kellyFrac, stakeRaw } = computeStakeUnits(p, oddsDec);
     const stakeMult = stakeMultiplierForMarket(b.market);
