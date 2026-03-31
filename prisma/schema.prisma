@@ -80,3 +80,66 @@ model BetslipItem {
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 }
+
+model EventSnapshot {
+  id         String   @id @default(cuid())
+  tour       String
+  eventId    String
+  eventName  String
+  eventYear  Int
+  capturedAt DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([tour, eventId, capturedAt])
+}
+
+model OddsSnapshot {
+  id         String   @id @default(cuid())
+  tour       String
+  eventId    String
+  eventYear  Int
+  market     String
+  book       String
+  dgId       Int?
+  playerName String?
+  oddsDec    Float?
+  marketProb Float?
+  opponents  String?
+  groupId    String?
+  capturedAt DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([tour, eventId, market, capturedAt])
+}
+
+model EventSg {
+  id         String   @id @default(cuid())
+  tour       String
+  eventId    String
+  eventYear  Int
+  dgId       Int
+  playerName String
+  sgOtt      Float?
+  sgApp      Float?
+  sgArg      Float?
+  sgPutt     Float?
+  sgTotal    Float?
+  rounds     Int?
+  createdAt  DateTime @default(now())
+
+  @@unique([tour, eventId, eventYear, dgId], name: "event_sg_unique")
+}
+
+model EventResult {
+  id         String   @id @default(cuid())
+  tour       String
+  eventId    String
+  eventYear  Int
+  dgId       Int
+  playerName String
+  finishPos  Int?
+  earnings   Float?
+  createdAt  DateTime @default(now())
+
+  @@unique([tour, eventId, eventYear, dgId], name: "event_result_unique")
+}
