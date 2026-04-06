@@ -121,6 +121,12 @@ model PreEventPlayerSnapshot {
   playerName                   String
   skillPred                    Float?
   customPred                   Float?
+  winProbModel                 Float?
+  winProbAnchored              Float?
+  top5ProbModel                Float?
+  top5ProbAnchored             Float?
+  top10ProbModel               Float?
+  top10ProbAnchored            Float?
   pMakeCutDg                   Float?
   pMakeCutModel                Float?
   top20ProbModel               Float?

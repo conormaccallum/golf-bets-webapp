@@ -15,6 +15,7 @@ type SummaryRow = {
 };
 
 type ValueSummaryResponse = {
+  tour?: string;
   meta?: {
     eventId?: string;
     eventName?: string;
@@ -86,6 +87,7 @@ function formatDateTime(value: string | null | undefined): string {
 }
 
 function makeUniqueKey(input: {
+  tour: string;
   eventId: string;
   market: string;
   dgId: string | null;
@@ -93,6 +95,7 @@ function makeUniqueKey(input: {
   opponents?: string | null;
 }) {
   return [
+    input.tour,
     input.eventId,
     input.market,
     input.dgId || "",
@@ -106,6 +109,7 @@ export default function HomePage() {
   const [runningModel, setRunningModel] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [data, setData] = useState<ValueSummaryResponse | null>(null);
+  const [tour, setTour] = useState<"pga" | "dp">("pga");
   const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
   const [runStatus, setRunStatus] = useState<string | null>(null);
   const [runStep, setRunStep] = useState<1 | 2 | 3 | 4 | null>(null);
@@ -118,7 +122,7 @@ export default function HomePage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/value-summary?t=${Date.now()}`, { cache: "no-store" });
+      const res = await fetch(`/api/value-summary?tour=${tour}&t=${Date.now()}`, { cache: "no-store" });
       const text = await res.text();
       if (text.trim().startsWith("<")) {
         throw new Error(`Non-JSON response from /api/value-summary (HTTP ${res.status}).`);
@@ -136,7 +140,7 @@ export default function HomePage() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [tour]);
 
   async function runModel() {
     setRunningModel(true);
@@ -196,7 +200,7 @@ export default function HomePage() {
 
             pollRef.current = setInterval(async () => {
               try {
-                const r2 = await fetch(`/api/value-summary?t=${Date.now()}`, { cache: "no-store" });
+                const r2 = await fetch(`/api/value-summary?tour=${tour}&t=${Date.now()}`, { cache: "no-store" });
                 const t2 = await r2.text();
                 if (t2.trim().startsWith("<")) return;
                 const j2 = JSON.parse(t2) as ValueSummaryResponse;
@@ -254,6 +258,7 @@ export default function HomePage() {
       ? String(row.dg_id)
       : null;
     const uniqueKey = makeUniqueKey({
+      tour,
       eventId: data?.meta?.eventId ?? "",
       market: row.market ?? "",
       dgId: dgIdStr,
@@ -275,6 +280,7 @@ export default function HomePage() {
         );
       }
       const payload = {
+        tour,
         market: row.market ?? "",
         playerName: row.player_name ?? "",
         dgId: toNumber(row.dg_id) ?? undefined,
@@ -313,6 +319,28 @@ export default function HomePage() {
           <h1 style={{ margin: 0, fontWeight: 700, fontSize: 28 }}>
             Value Summary
           </h1>
+          <div style={{ display: "flex", gap: 6 }}>
+            <Button
+              onClick={() => setTour("pga")}
+              style={{
+                background: tour === "pga" ? "#f3b44b" : "transparent",
+                color: tour === "pga" ? "#111" : "#f3b44b",
+                border: "1px solid #f3b44b",
+              }}
+            >
+              PGA
+            </Button>
+            <Button
+              onClick={() => setTour("dp")}
+              style={{
+                background: tour === "dp" ? "#f3b44b" : "transparent",
+                color: tour === "dp" ? "#111" : "#f3b44b",
+                border: "1px solid #f3b44b",
+              }}
+            >
+              DP World Tour
+            </Button>
+          </div>
           <Button onClick={load} disabled={loading}>
             {loading ? "Refreshing..." : "Refresh"}
           </Button>
@@ -400,6 +428,7 @@ export default function HomePage() {
                     const isValue = edge >= minEdge;
                     const rowId = String(r.dg_id ?? r.player_name ?? i);
                     const rowKey = makeUniqueKey({
+                      tour,
                       eventId: meta?.eventId ?? "",
                       market: r.market ?? "",
                       dgId:

@@ -32,6 +32,12 @@ type FeatureRow = {
   playerName: string;
   skillPred?: number | null;
   customPred?: number | null;
+  winProbModel?: number | null;
+  winProbAnchored?: number | null;
+  top5ProbModel?: number | null;
+  top5ProbAnchored?: number | null;
+  top10ProbModel?: number | null;
+  top10ProbAnchored?: number | null;
   pMakeCutDg?: number | null;
   pMakeCutModel?: number | null;
   top20ProbModel?: number | null;
@@ -109,6 +115,12 @@ export async function POST(req: NextRequest) {
         playerName: f.playerName,
         skillPred: f.skillPred ?? null,
         customPred: f.customPred ?? null,
+        winProbModel: f.winProbModel ?? null,
+        winProbAnchored: f.winProbAnchored ?? null,
+        top5ProbModel: f.top5ProbModel ?? null,
+        top5ProbAnchored: f.top5ProbAnchored ?? null,
+        top10ProbModel: f.top10ProbModel ?? null,
+        top10ProbAnchored: f.top10ProbAnchored ?? null,
         pMakeCutDg: f.pMakeCutDg ?? null,
         pMakeCutModel: f.pMakeCutModel ?? null,
         top20ProbModel: f.top20ProbModel ?? null,

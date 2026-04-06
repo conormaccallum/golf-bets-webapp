@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ReactNode } from "react";
+import { CSSProperties, ReactNode } from "react";
 
 function NavLink({ href, children }: { href: string; children: ReactNode }) {
   return (
@@ -26,10 +26,12 @@ export function Button({
   children,
   onClick,
   disabled,
+  style,
 }: {
   children: ReactNode;
   onClick?: () => void;
   disabled?: boolean;
+  style?: CSSProperties;
 }) {
   return (
     <button
@@ -45,6 +47,7 @@ export function Button({
         cursor: disabled ? "not-allowed" : "pointer",
         boxShadow: disabled ? "none" : "0 2px 0 rgba(255,255,255,0.25)",
         transform: "translateY(0)",
+        ...style,
       }}
       onMouseDown={(e) => {
         if (disabled) return;
@@ -167,6 +170,7 @@ export function HeaderNav() {
           <NavLink href="/">Home</NavLink>
           <NavLink href="/betslip">Betslip</NavLink>
           <NavLink href="/value">Value Screens</NavLink>
+          <NavLink href="/event-model">Event Model</NavLink>
           <NavLink href="/performance">Performance</NavLink>
         </div>
 
