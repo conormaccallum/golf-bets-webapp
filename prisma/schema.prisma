@@ -112,6 +112,39 @@ model OddsSnapshot {
   @@index([tour, eventId, market, capturedAt])
 }
 
+model PreEventPlayerSnapshot {
+  id                           String   @id @default(cuid())
+  tour                         String
+  eventId                      String
+  eventYear                    Int
+  dgId                         Int
+  playerName                   String
+  skillPred                    Float?
+  customPred                   Float?
+  pMakeCutDg                   Float?
+  pMakeCutModel                Float?
+  top20ProbModel               Float?
+  top20ProbAnchored            Float?
+  top20ProbDh                  Float?
+  top20ProbAnchoredDh          Float?
+  sgApp                        Float?
+  sgOtt                        Float?
+  sgArg                        Float?
+  sgPutt                       Float?
+  sgTotal                      Float?
+  drivingAcc                   Float?
+  drivingDist                  Float?
+  totalFitAdjustment           Float?
+  totalCourseHistoryAdjustment Float?
+  timingAdjustment             Float?
+  stdDeviation                 Float?
+  capturedAt                   DateTime
+  createdAt                    DateTime @default(now())
+
+  @@index([tour, eventId, capturedAt])
+  @@index([tour, eventYear, dgId])
+}
+
 model EventSg {
   id         String   @id @default(cuid())
   tour       String
