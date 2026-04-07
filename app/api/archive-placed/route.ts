@@ -33,10 +33,19 @@ export async function POST(req: Request) {
     const prisma = getPrisma();
     const url = new URL(req.url);
     const tour = normalizeTour(url.searchParams.get("tour") || DEFAULT_TOUR);
-    const placed = await prisma.betslipItem.findMany({
+    let placed = await prisma.betslipItem.findMany({
       where: { tour, status: "PLACED", archivedAt: null },
       orderBy: [{ eventYear: "desc" }, { eventName: "asc" }, { createdAt: "asc" }],
     });
+
+    // Manual archive acts as a repair path too: rebuild weeks from existing placed bets
+    // even if those rows were already marked archived by an earlier broken run.
+    if (placed.length === 0 && manual) {
+      placed = await prisma.betslipItem.findMany({
+        where: { tour, status: "PLACED" },
+        orderBy: [{ eventYear: "desc" }, { eventName: "asc" }, { createdAt: "asc" }],
+      });
+    }
 
     if (placed.length === 0) {
       return NextResponse.json({ ok: true, archived: 0 });
@@ -93,6 +102,11 @@ export async function POST(req: Request) {
 
     if (clearAfter) {
       await prisma.betslipItem.deleteMany({ where: { tour, status: "PLACED", archivedAt: null } });
+    } else if (!manual) {
+      await prisma.betslipItem.updateMany({
+        where: { tour, status: "PLACED", archivedAt: null },
+        data: { archivedAt: new Date() },
+      });
     } else {
       await prisma.betslipItem.updateMany({
         where: { tour, status: "PLACED", archivedAt: null },
