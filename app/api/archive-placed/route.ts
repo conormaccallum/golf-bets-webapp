@@ -21,12 +21,6 @@ async function fetchFromOutputs(tour: string, name: string): Promise<Response> {
   return res2.ok ? res2 : res;
 }
 
-async function getMeta(tour: string) {
-  const res = await fetchFromOutputs(tour, "event_meta.json");
-  if (!res.ok) throw new Error("event_meta.json not found");
-  return res.json();
-}
-
 export async function POST(req: Request) {
   const auth = req.headers.get("authorization") || "";
   const manual = req.headers.get("x-archive-manual") === "true";
@@ -39,60 +33,69 @@ export async function POST(req: Request) {
     const prisma = getPrisma();
     const url = new URL(req.url);
     const tour = normalizeTour(url.searchParams.get("tour") || DEFAULT_TOUR);
-    const meta = await getMeta(tour);
     const placed = await prisma.betslipItem.findMany({
-      where: { tour, eventId: meta.eventId, status: "PLACED", archivedAt: null },
+      where: { tour, status: "PLACED", archivedAt: null },
+      orderBy: [{ eventYear: "desc" }, { eventName: "asc" }, { createdAt: "asc" }],
     });
 
     if (placed.length === 0) {
       return NextResponse.json({ ok: true, archived: 0 });
     }
 
-    const label = `${meta.eventName} ${meta.eventYear}`;
-    const week = await prisma.week.upsert({
-      where: { eventId_tour: { eventId: meta.eventId, tour } },
-      update: { label, eventName: meta.eventName, eventYear: meta.eventYear },
-      create: {
-        label,
-        eventId: meta.eventId,
-        eventName: meta.eventName,
-        eventYear: meta.eventYear,
-        tour,
-      },
-    });
-
-    // Overwrite the week's bets with the current placed betslip
-    await prisma.bet.deleteMany({ where: { weekId: week.id } });
-
+    const groups = new Map<string, typeof placed>();
     for (const b of placed) {
-      const dgIdNum =
-        b.dgId !== null && b.dgId !== undefined && b.dgId !== ""
-          ? Number(b.dgId)
-          : null;
-      await prisma.bet.create({
-        data: {
-          weekId: week.id,
-          betType: b.market,
+      const key = `${b.eventId}|${b.eventYear}|${b.eventName}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(b);
+    }
+
+    for (const group of groups.values()) {
+      const sample = group[0];
+      const label = `${sample.eventName} ${sample.eventYear}`;
+      const week = await prisma.week.upsert({
+        where: { eventId_tour: { eventId: sample.eventId, tour } },
+        update: { label, eventName: sample.eventName, eventYear: sample.eventYear },
+        create: {
+          label,
+          eventId: sample.eventId,
+          eventName: sample.eventName,
+          eventYear: sample.eventYear,
           tour,
-          playerName: b.playerName,
-          dgId: Number.isFinite(dgIdNum as number) ? (dgIdNum as number) : null,
-          marketBookBest: b.marketBookBest ?? "",
-          marketOddsBestDec: b.oddsEnteredDec ?? b.marketOddsBestDec ?? 0,
-          stakeUnits: b.stakeUnits ?? 0,
-          pModel: b.pModel ?? 0,
-          edgeProb: b.edgeProb ?? 0,
-          evPerUnit: b.evPerUnit ?? 0,
-          kellyFull: b.kellyFull ?? 0,
-          kellyFrac: b.kellyFrac ?? 0,
         },
       });
+
+      await prisma.bet.deleteMany({ where: { weekId: week.id } });
+
+      for (const b of group) {
+        const dgIdNum =
+          b.dgId !== null && b.dgId !== undefined && b.dgId !== ""
+            ? Number(b.dgId)
+            : null;
+        await prisma.bet.create({
+          data: {
+            weekId: week.id,
+            betType: b.market,
+            tour,
+            playerName: b.playerName,
+            dgId: Number.isFinite(dgIdNum as number) ? (dgIdNum as number) : null,
+            marketBookBest: b.marketBookBest ?? "",
+            marketOddsBestDec: b.oddsEnteredDec ?? b.marketOddsBestDec ?? 0,
+            stakeUnits: b.stakeUnits ?? 0,
+            pModel: b.pModel ?? 0,
+            edgeProb: b.edgeProb ?? 0,
+            evPerUnit: b.evPerUnit ?? 0,
+            kellyFull: b.kellyFull ?? 0,
+            kellyFrac: b.kellyFrac ?? 0,
+          },
+        });
+      }
     }
 
     if (clearAfter) {
-      await prisma.betslipItem.deleteMany({ where: { tour, eventId: meta.eventId } });
+      await prisma.betslipItem.deleteMany({ where: { tour, status: "PLACED", archivedAt: null } });
     } else {
       await prisma.betslipItem.updateMany({
-        where: { tour, eventId: meta.eventId, status: "PLACED", archivedAt: null },
+        where: { tour, status: "PLACED", archivedAt: null },
         data: { archivedAt: new Date() },
       });
     }
