@@ -83,6 +83,7 @@ async function fetchJsonFromOutputs<T>(baseRaw: string, tour: string, name: stri
 
 export async function POST(req: Request) {
   try {
+    const { getPrisma } = await import("@/lib/prisma");
     const baseRaw = process.env.OUTPUT_BASE_URL;
     if (!baseRaw) {
       return NextResponse.json(
@@ -105,6 +106,12 @@ export async function POST(req: Request) {
     const matchup2Csv = await fetchTextFromOutputs(baseRaw, tour, "latest_value_matchups_2ball.csv");
     const matchup3Csv = await fetchTextFromOutputs(baseRaw, tour, "latest_value_matchups_3ball.csv");
 
+    const prisma = getPrisma();
+    const betslipItems = await prisma.betslipItem.findMany({
+      where: { eventId: eventMeta.eventId, tour },
+      select: { uniqueKey: true },
+    });
+
     return NextResponse.json({
       ok: true,
       tour,
@@ -121,6 +128,7 @@ export async function POST(req: Request) {
         matchup2: parseCsv(matchup2Csv),
         matchup3: parseCsv(matchup3Csv),
       },
+      betslipKeys: betslipItems.map((b) => b.uniqueKey),
       generatedAt: new Date().toISOString(),
     });
   } catch (e: any) {

@@ -1,15 +1,41 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
-import { HeaderNav } from "../components/ui";
+import { HeaderNav, Button } from "../components/ui";
 
 type Market = "win" | "top5" | "top10" | "top20" | "make_cut" | "miss_cut" | "matchup_2b" | "matchup_3b";
-
-type TableData = {
-  headers: string[];
-  rows: string[][];
+type TableData = { headers: string[]; rows: string[][] };
+type RunResponse = {
+  ok?: boolean;
+  error?: string;
+  meta?: { eventId?: string; refreshLockDay?: string };
+  tables?: {
+    win?: TableData | null;
+    top5?: TableData | null;
+    top10?: TableData | null;
+    top20?: TableData | null;
+    makeCut?: TableData | null;
+    missCut?: TableData | null;
+    matchup2?: TableData | null;
+    matchup3?: TableData | null;
+  };
+  betslipKeys?: string[];
 };
+type DisplayRow = {
+  playerName: string;
+  opponents: string;
+  book: string;
+  odds: number | null;
+  marketProb: number | null;
+  modelProb: number | null;
+  edge: number | null;
+  dgId: string | null;
+  marketLabel: string;
+};
+
+const MIN_EDGE = 0.04;
+const MIN_EDGE_MATCHUP_2B = 0.0784;
+const MIN_EDGE_MATCHUP_3B = 0.1153;
 
 function toNumber(x: unknown): number | null {
   if (x === null || x === undefined) return null;
@@ -45,41 +71,51 @@ function formatEdge(e: number | null): string {
   return `${sign}${pct.toFixed(1)}%`;
 }
 
-function modelProbHeader(market: Market): string {
-  if (market === "win") return "Model Prob. to Win";
-  if (market === "top5") return "Model Prob. of Top 5";
-  if (market === "top10") return "Model Prob. of Top 10";
-  if (market === "top20") return "Model Prob. of Top 20";
-  if (market === "make_cut") return "Model Prob. of Make Cut";
-  if (market === "miss_cut") return "Model Prob. of Miss Cut";
-  return "Model Prob. of Miss Cut";
+function marketLabel(market: Market): string {
+  if (market === "win") return "Win";
+  if (market === "top5") return "Top 5";
+  if (market === "top10") return "Top 10";
+  if (market === "top20") return "Top 20";
+  if (market === "make_cut") return "Make Cut";
+  if (market === "miss_cut") return "Miss Cut";
+  if (market === "matchup_2b") return "Matchup 2-Ball";
+  return "Matchup 3-Ball";
 }
 
-function transformValueTable(raw: TableData | null, market: Market): TableData | null {
-  if (!raw?.headers?.length) return null;
-  if (market === "matchup_2b" || market === "matchup_3b") {
-    return transformMatchupTable(raw);
-  }
+function marketMinEdge(market: Market): number {
+  if (market === "matchup_2b") return MIN_EDGE_MATCHUP_2B;
+  if (market === "matchup_3b") return MIN_EDGE_MATCHUP_3B;
+  return MIN_EDGE;
+}
 
+function makeUniqueKey(input: {
+  tour: string;
+  eventId: string;
+  market: string;
+  dgId: string | null;
+  playerName: string;
+  opponents?: string | null;
+}) {
+  return [
+    input.tour,
+    input.eventId,
+    input.market,
+    input.dgId || "",
+    input.playerName,
+    input.opponents || "",
+  ].join("|");
+}
+
+function buildDisplayRows(raw: TableData | null, market: Market): DisplayRow[] {
+  if (!raw?.headers?.length) return [];
   const h = raw.headers;
-
   const idxPlayer = pickIndex(h, ["player_name", "player", "name"]);
-  const idxDgId = pickIndex(h, ["dg_id", "datagolf_id", "dgid"]);
-
+  const idxOpp = pickIndex(h, ["opponents", "opponent", "opp"]);
+  const idxDgId = pickIndex(h, ["dg_id", "p1_dg_id", "datagolf_id", "dgid"]);
   const idxBook = pickIndex(h, ["market_book_best", "bookmaker", "book", "best_book"]);
-  const idxOdds = pickIndex(h, [
-    "market_odds_best_dec",
-    "best_market_odds",
-    "best_odds",
-    "odds_best_dec",
-    "odds",
-  ]);
-
-  const idxMarketProb = pickIndex(h, [
-    "market_prob_best",
-    "market_prob",
-    "implied_prob",
-  ]);
+  const idxOdds = pickIndex(h, ["market_odds_best_dec", "best_market_odds", "best_odds", "odds_best_dec", "odds"]);
+  const idxMarketProb = pickIndex(h, ["market_prob_best", "market_prob", "implied_prob"]);
+  const idxEdge = pickIndex(h, ["edge_prob", "edge"]);
 
   const idxModelProb =
     market === "win"
@@ -89,138 +125,49 @@ function transformValueTable(raw: TableData | null, market: Market): TableData |
       : market === "top10"
       ? pickIndex(h, ["top10_prob_anchored", "top10_prob_model", "p_model"])
       : market === "top20"
-      ? pickIndex(h, [
-          "top20_prob_anchored_dh",
-          "top20_prob_anchored",
-          "top20_prob_dh",
-          "top20_prob_model",
-          "top20_prob",
-          "p_top20",
-          "p_model",
-        ])
+      ? pickIndex(h, ["top20_prob_anchored_dh", "top20_prob_anchored", "top20_prob_dh", "top20_prob_model", "p_model"])
       : market === "make_cut"
-      ? pickIndex(h, [
-          "p_make_cut_model",   // ← your actual column
-          "p_make_cut",
-          "make_cut_prob",
-          "p_model",
-        ])
-      : pickIndex(h, [
-          "p_miss_cut_model",   // ← your actual column
-          "p_miss_cut",
-          "miss_cut_prob",
-          "p_model",
-        ]);
+      ? pickIndex(h, ["p_make_cut_model", "p_make_cut", "make_cut_prob", "p_model"])
+      : market === "miss_cut"
+      ? pickIndex(h, ["p_miss_cut_model", "p_miss_cut", "miss_cut_prob", "p_model"])
+      : pickIndex(h, ["p_model", "win_prob", "model_prob"]);
 
-  const outHeaders = [
-    "Player Name",
-    "Odds",
-    "Book",
-    "Market Win %",
-    "Model Win %",
-    "Implied Edge",
-  ];
-
-  const idxEdge = pickIndex(h, ["edge_prob", "edge"]);
-
-  const outRows: string[][] = raw.rows.map((r) => {
-    const player = idxPlayer >= 0 ? (r[idxPlayer] ?? "") : "";
-    const dgId = idxDgId >= 0 ? (r[idxDgId] ?? "") : "";
-
-    const modelProb = idxModelProb >= 0 ? toNumber(r[idxModelProb]) : null;
-    const odds = idxOdds >= 0 ? toNumber(r[idxOdds]) : null;
-    const book = idxBook >= 0 ? (r[idxBook] ?? "") : "";
-    const marketProb = idxMarketProb >= 0 ? toNumber(r[idxMarketProb]) : null;
-
-    const impliedProb = odds && odds > 0 ? 1 / odds : marketProb;
-    const edgeCsv = idxEdge >= 0 ? toNumber(r[idxEdge]) : null;
-    const edge = edgeCsv !== null ? edgeCsv : (modelProb !== null && impliedProb !== null ? modelProb - impliedProb : null);
-
-    return [
-      player,
-      formatOdds(odds),
-      book,
-      formatPct(impliedProb),
-      formatPct(modelProb),
-      formatEdge(edge),
-    ];
-  });
-
-  // sort by edge desc if edge exists
-  outRows.sort((a, b) => {
-    const ea = toNumber(String(a[5]).replace("%", "").replace("+", ""));
-    const eb = toNumber(String(b[5]).replace("%", "").replace("+", ""));
-    if (ea === null && eb === null) return 0;
-    if (ea === null) return 1;
-    if (eb === null) return -1;
-    return eb - ea;
-  });
-
-  return { headers: outHeaders, rows: outRows };
-}
-
-function transformMatchupTable(raw: TableData | null): TableData | null {
-  if (!raw?.headers?.length) return null;
-
-  const h = raw.headers;
-  const idxPlayer = pickIndex(h, ["player_name", "player", "name"]);
-  const idxOpp = pickIndex(h, ["opponents", "opponent", "opp"]);
-  const idxOdds = pickIndex(h, ["market_odds_best_dec", "odds", "odds_dec"]);
-  const idxBook = pickIndex(h, ["market_book_best", "book"]);
-  const idxP = pickIndex(h, ["p_model", "win_prob", "model_prob"]);
-  const idxEdge = pickIndex(h, ["edge_prob", "edge"]);
-
-  const outHeaders = [
-    "Player",
-    "Opponent(s)",
-    "Odds",
-    "Book",
-    "Market Win %",
-    "Model Win %",
-    "Edge",
-  ];
-
-  const outRows: string[][] = raw.rows.map((r) => {
-    const player = idxPlayer >= 0 ? (r[idxPlayer] ?? "") : "";
-    const opp = idxOpp >= 0 ? (r[idxOpp] ?? "") : "";
-    const odds = idxOdds >= 0 ? toNumber(r[idxOdds]) : null;
-    const book = idxBook >= 0 ? (r[idxBook] ?? "") : "";
-    const p = idxP >= 0 ? toNumber(r[idxP]) : null;
-    const edge = idxEdge >= 0 ? toNumber(r[idxEdge]) : null;
-    const impliedProb = odds && odds > 0 ? 1 / odds : null;
-
-    return [
-      player,
-      opp,
-      formatOdds(odds),
-      book,
-      formatPct(impliedProb),
-      formatPct(p),
-      formatEdge(edge),
-    ];
-  });
-
-  // sort by edge desc if edge exists
-  outRows.sort((a, b) => {
-    const ea = toNumber(String(a[6]).replace("%", "").replace("+", ""));
-    const eb = toNumber(String(b[6]).replace("%", "").replace("+", ""));
-    if (ea === null && eb === null) return 0;
-    if (ea === null) return 1;
-    if (eb === null) return -1;
-    return eb - ea;
-  });
-
-  return { headers: outHeaders, rows: outRows };
+  return raw.rows
+    .map((r) => {
+      const odds = idxOdds >= 0 ? toNumber(r[idxOdds]) : null;
+      const marketProb = idxMarketProb >= 0 ? toNumber(r[idxMarketProb]) : odds && odds > 0 ? 1 / odds : null;
+      const modelProb = idxModelProb >= 0 ? toNumber(r[idxModelProb]) : null;
+      const edgeCsv = idxEdge >= 0 ? toNumber(r[idxEdge]) : null;
+      const edge = edgeCsv !== null ? edgeCsv : modelProb !== null && marketProb !== null ? modelProb - marketProb : null;
+      return {
+        playerName: idxPlayer >= 0 ? r[idxPlayer] ?? "" : "",
+        opponents: idxOpp >= 0 ? r[idxOpp] ?? "" : "",
+        book: idxBook >= 0 ? r[idxBook] ?? "" : "",
+        odds,
+        marketProb,
+        modelProb,
+        edge,
+        dgId: idxDgId >= 0 && r[idxDgId] ? String(r[idxDgId]) : null,
+        marketLabel: marketLabel(market),
+      };
+    })
+    .filter((r) => r.playerName)
+    .sort((a, b) => (b.edge ?? -999) - (a.edge ?? -999));
 }
 
 export default function ValueScreensPage() {
   const [market, setMarket] = useState<Market>("top20");
   const [tour, setTour] = useState<"pga" | "dp">("pga");
-  const [rawTable, setRawTable] = useState<TableData | null>(null);
+  const [data, setData] = useState<RunResponse | null>(null);
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<string>("");
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
   const [lockMsg, setLockMsg] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [onlyValue, setOnlyValue] = useState(true);
+  const [minEdge, setMinEdge] = useState("");
+  const [addingId, setAddingId] = useState<string | null>(null);
 
   async function load(ignoreLock = false) {
     if (locked && !ignoreLock) {
@@ -228,33 +175,38 @@ export default function ValueScreensPage() {
       return;
     }
     setLoading(true);
+    setError(null);
     setStatus("Loading...");
     try {
       const res = await fetch(`/api/run?tour=${tour}`, { method: "POST" });
-      const json = await res.json();
+      const json = (await res.json()) as RunResponse;
       if (!json?.ok) throw new Error(json?.error ?? "API error");
-
-      if (market === "win") setRawTable(json.tables?.win ?? null);
-      if (market === "top5") setRawTable(json.tables?.top5 ?? null);
-      if (market === "top10") setRawTable(json.tables?.top10 ?? null);
-      if (market === "top20") setRawTable(json.tables?.top20 ?? null);
-      if (market === "make_cut") setRawTable(json.tables?.makeCut ?? null);
-      if (market === "miss_cut") setRawTable(json.tables?.missCut ?? null);
-      if (market === "matchup_2b") setRawTable(json.tables?.matchup2 ?? null);
-      if (market === "matchup_3b") setRawTable(json.tables?.matchup3 ?? null);
-
+      setData(json);
       const isMatchup = market === "matchup_2b" || market === "matchup_3b";
-      const table = isMatchup
-        ? (market === "matchup_2b" ? json.tables?.matchup2 : json.tables?.matchup3)
-        : null;
+      const table = market === "win"
+        ? json.tables?.win
+        : market === "top5"
+        ? json.tables?.top5
+        : market === "top10"
+        ? json.tables?.top10
+        : market === "top20"
+        ? json.tables?.top20
+        : market === "make_cut"
+        ? json.tables?.makeCut
+        : market === "miss_cut"
+        ? json.tables?.missCut
+        : market === "matchup_2b"
+        ? json.tables?.matchup2
+        : json.tables?.matchup3;
       if (isMatchup && table && Array.isArray(table.rows) && table.rows.length === 0) {
         setStatus("No matchup odds available for this event.");
       } else {
         setStatus("Loaded");
       }
     } catch (e: any) {
+      setError(e?.message ?? "Failed to load");
       setStatus(e?.message ?? "Failed to load");
-      setRawTable(null);
+      setData(null);
     } finally {
       setLoading(false);
     }
@@ -263,7 +215,7 @@ export default function ValueScreensPage() {
   useEffect(() => {
     load(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [market, tour]);
+  }, [tour]);
 
   useEffect(() => {
     async function loadLock() {
@@ -279,9 +231,7 @@ export default function ValueScreensPage() {
         const daysSinceLock = (todayIdx - lockIdx + 7) % 7;
         const isLocked = daysSinceLock <= 3;
         setLocked(isLocked);
-        if (isLocked) {
-          setLockMsg(`Refresh locked (${lockDay}–Sunday).`);
-        }
+        setLockMsg(isLocked ? `Refresh locked (${lockDay}–Sunday).` : null);
       } catch {
         // ignore
       }
@@ -289,60 +239,92 @@ export default function ValueScreensPage() {
     loadLock();
   }, [tour]);
 
-  const displayTable = useMemo(() => transformValueTable(rawTable, market), [rawTable, market]);
+  const betslipKeySet = useMemo(() => new Set(data?.betslipKeys ?? []), [data]);
+
+  const rawTable = useMemo(() => {
+    if (!data?.tables) return null;
+    if (market === "win") return data.tables.win ?? null;
+    if (market === "top5") return data.tables.top5 ?? null;
+    if (market === "top10") return data.tables.top10 ?? null;
+    if (market === "top20") return data.tables.top20 ?? null;
+    if (market === "make_cut") return data.tables.makeCut ?? null;
+    if (market === "miss_cut") return data.tables.missCut ?? null;
+    if (market === "matchup_2b") return data.tables.matchup2 ?? null;
+    return data.tables.matchup3 ?? null;
+  }, [data, market]);
+
+  const rows = useMemo(() => buildDisplayRows(rawTable, market), [rawTable, market]);
+
+  const filteredRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const edgeFloor = minEdge.trim() === "" ? marketMinEdge(market) : (Number(minEdge) || 0) / 100;
+    return rows.filter((row) => {
+      if (q) {
+        const hay = `${row.playerName} ${row.opponents} ${row.book}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      if (onlyValue && (row.edge ?? -999) < edgeFloor) return false;
+      return true;
+    });
+  }, [rows, search, minEdge, onlyValue, market]);
+
+  async function addToBetslip(row: DisplayRow) {
+    const rowId = `${row.playerName}|${row.marketLabel}|${row.opponents}`;
+    const uniqueKey = makeUniqueKey({
+      tour,
+      eventId: data?.meta?.eventId ?? "",
+      market: row.marketLabel,
+      dgId: row.dgId,
+      playerName: row.playerName,
+      opponents: row.opponents,
+    });
+    if (betslipKeySet.has(uniqueKey)) {
+      setError("That bet is already in the betslip.");
+      return;
+    }
+    setAddingId(rowId);
+    setError(null);
+    try {
+      const payload = {
+        tour,
+        market: row.marketLabel,
+        playerName: row.playerName,
+        dgId: row.dgId ? Number(row.dgId) : undefined,
+        opponents: row.opponents,
+        marketOddsBestDec: row.odds ?? undefined,
+        marketBookBest: row.book,
+        pModel: row.modelProb ?? undefined,
+      };
+      const res = await fetch("/api/betslip", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json?.error || "Failed to add bet");
+      await load(true);
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to add bet");
+    } finally {
+      setAddingId(null);
+    }
+  }
 
   return (
     <div style={{ minHeight: "100vh", background: "#000", fontFamily: "sans-serif", color: "white" }}>
-      {/* NAV */}
       <HeaderNav />
 
-      <main style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
+      <main style={{ padding: 24, maxWidth: 1400, margin: "0 auto" }}>
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <h1 style={{ marginTop: 0, fontWeight: 700, fontSize: 28 }}>Value Screens</h1>
           <div style={{ display: "flex", gap: 6 }}>
-            <button
-              onClick={() => setTour("pga")}
-              style={{
-                padding: "6px 10px",
-                borderRadius: 10,
-                border: "1px solid #f3b44b",
-                background: tour === "pga" ? "#f3b44b" : "transparent",
-                color: tour === "pga" ? "#111" : "#f3b44b",
-                cursor: "pointer",
-                fontWeight: 700,
-              }}
-            >
-              PGA
-            </button>
-            <button
-              onClick={() => setTour("dp")}
-              style={{
-                padding: "6px 10px",
-                borderRadius: 10,
-                border: "1px solid #f3b44b",
-                background: tour === "dp" ? "#f3b44b" : "transparent",
-                color: tour === "dp" ? "#111" : "#f3b44b",
-                cursor: "pointer",
-                fontWeight: 700,
-              }}
-            >
-              DP World Tour
-            </button>
+            <Button onClick={() => setTour("pga")} style={{ background: tour === "pga" ? "#f3b44b" : "transparent", color: tour === "pga" ? "#111" : "#f3b44b", border: "1px solid #f3b44b" }}>PGA</Button>
+            <Button onClick={() => setTour("dp")} style={{ background: tour === "dp" ? "#f3b44b" : "transparent", color: tour === "dp" ? "#111" : "#f3b44b", border: "1px solid #f3b44b" }}>DP World Tour</Button>
           </div>
         </div>
 
         <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-          <select
-            value={market}
-            onChange={(e) => setMarket(e.target.value as Market)}
-            style={{
-              padding: "8px 10px",
-              borderRadius: 10,
-              border: "1px solid #333",
-              background: "#111",
-              color: "white",
-            }}
-          >
+          <select value={market} onChange={(e) => setMarket(e.target.value as Market)} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #333", background: "#111", color: "white" }}>
             <option value="win">Win</option>
             <option value="top5">Top 5</option>
             <option value="top10">Top 10</option>
@@ -353,100 +335,94 @@ export default function ValueScreensPage() {
             <option value="matchup_3b">Matchups (3-Ball)</option>
           </select>
 
-          <button
-            onClick={() => load(false)}
-            disabled={loading || locked}
-            style={{
-              padding: "8px 12px",
-              borderRadius: 10,
-              border: "1px solid #333",
-              background: "#111",
-              color: "white",
-              cursor: loading ? "not-allowed" : "pointer",
-            }}
-          >
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search player, opponent or book"
+            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #333", background: "#111", color: "white", minWidth: 260 }}
+          />
+
+          <input
+            value={minEdge}
+            onChange={(e) => setMinEdge(e.target.value)}
+            placeholder={`Min edge % (${(marketMinEdge(market) * 100).toFixed(1)} default)`}
+            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #333", background: "#111", color: "white", width: 190 }}
+          />
+
+          <label style={{ display: "flex", alignItems: "center", gap: 8, color: "#ddd" }}>
+            <input type="checkbox" checked={onlyValue} onChange={(e) => setOnlyValue(e.target.checked)} />
+            Value only
+          </label>
+
+          <Button onClick={() => load(false)} disabled={loading || locked}>
             {loading ? "Loading..." : "Refresh"}
-          </button>
+          </Button>
 
           <span style={{ color: "#bbb" }}>
             {status}
-            {locked && (
-              <span style={{ marginLeft: 12, color: "#ffb347" }}>
-                {lockMsg ?? "Refresh locked (tournament live)."}
-              </span>
-            )}
+            {locked && <span style={{ marginLeft: 12, color: "#ffb347" }}>{lockMsg ?? "Refresh locked (tournament live)."}</span>}
           </span>
         </div>
 
-        {!displayTable?.headers?.length ? (
+        <div style={{ marginBottom: 12, color: "#bbb" }}>
+          Showing {filteredRows.length} of {rows.length} rows
+        </div>
+
+        {error && <div style={{ marginBottom: 12, color: "#ff7a7a" }}>{error}</div>}
+
+        {!rows.length ? (
           <div style={{ border: "1px solid #333", borderRadius: 16, padding: 16 }}>
             <p style={{ margin: 0 }}>No data loaded.</p>
           </div>
         ) : (
           <div style={{ overflowX: "auto", border: "1px solid #333", borderRadius: 14 }}>
-            <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 900 }}>
+            <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 1100 }}>
               <thead>
                 <tr>
-                  {displayTable.headers.map((hh) => (
-                    <th
-                      key={hh}
-                      style={{
-                        textAlign: "left",
-                        padding: 10,
-                        borderBottom: "1px solid #333",
-                        background: "#111",
-                        color: "white",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
+                  {["Player", "Opponent(s)", "Odds", "Book", "Market Win %", "Model Win %", "Edge", ""].map((hh) => (
+                    <th key={hh} style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #333", background: "#111", color: "white", whiteSpace: "nowrap" }}>
                       {hh}
                     </th>
                   ))}
                 </tr>
               </thead>
-
               <tbody>
-                {displayTable.rows.map((row, i) => (
-                  <tr key={i} style={{ background: i % 2 === 0 ? "#000" : "#141414" }}>
-                    {row.map((cell, j) => (
-                      <td
-                        key={j}
-                        style={{
-                          padding: 10,
-                          borderBottom: "1px solid #222",
-                          whiteSpace: "nowrap",
-                          color: "white",
-                        }}
-                      >
-                        {cell}
+                {filteredRows.map((row, i) => {
+                  const rowId = `${row.playerName}|${row.marketLabel}|${row.opponents}`;
+                  const uniqueKey = makeUniqueKey({
+                    tour,
+                    eventId: data?.meta?.eventId ?? "",
+                    market: row.marketLabel,
+                    dgId: row.dgId,
+                    playerName: row.playerName,
+                    opponents: row.opponents,
+                  });
+                  const alreadyAdded = betslipKeySet.has(uniqueKey);
+                  const isValue = (row.edge ?? -999) >= marketMinEdge(market);
+                  return (
+                    <tr key={rowId + i} style={{ background: i % 2 === 0 ? "#000" : "#141414" }}>
+                      <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{row.playerName}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{row.opponents}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{formatOdds(row.odds)}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{row.book}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{formatPct(row.marketProb)}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{formatPct(row.modelProb)}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap", color: isValue ? "#8bffb6" : "#bbb", fontWeight: isValue ? 700 : 400 }}>
+                        {formatEdge(row.edge)}
                       </td>
-                    ))}
-                  </tr>
-                ))}
+                      <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>
+                        <Button onClick={() => addToBetslip(row)} disabled={addingId === rowId || alreadyAdded}>
+                          {addingId === rowId ? "Adding..." : alreadyAdded ? "Added" : "Add to Betslip"}
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
         )}
       </main>
     </div>
-  );
-}
-
-function NavLink({ href, children }: { href: string; children: React.ReactNode }) {
-  return (
-    <Link
-      href={href}
-      style={{
-        textDecoration: "none",
-        padding: "8px 12px",
-        borderRadius: 10,
-        border: "1px solid #333",
-        color: "white",
-        background: "#111",
-        fontWeight: 700,
-      }}
-    >
-      {children}
-    </Link>
   );
 }
