@@ -75,6 +75,7 @@ model BetslipItem {
   kellyFull          Float?
   kellyFrac          Float?
   stakeUnits         Float?
+  stakeUnitsEntered  Float?
   status             BetslipStatus @default(PENDING)
   archivedAt         DateTime?
   createdAt          DateTime      @default(now())

@@ -3,15 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { Button, HeaderNav } from "../components/ui";
 
-const MIN_EDGE = 0.04;
-const MIN_EDGE_MATCHUP_2B = 0.0784;
-const MIN_EDGE_MATCHUP_3B = 0.1153;
-
 type BetslipItem = {
   id: string;
   eventId: string;
   eventName: string | null;
   eventYear: number | null;
+  tour?: string;
   market: string;
   playerName: string;
   dgId: string | null;
@@ -25,6 +22,7 @@ type BetslipItem = {
   kellyFull: number | null;
   kellyFrac: number | null;
   stakeUnits: number | null;
+  stakeUnitsEntered: number | null;
   status: "PENDING" | "PLACED";
   createdAt?: string;
   updatedAt?: string;
@@ -35,6 +33,7 @@ type EventMeta = {
   eventName: string;
   eventYear: number;
   refreshLockDay?: string;
+  tour?: string;
 };
 
 function fmt(n: number | null | undefined, dp = 2) {
@@ -47,33 +46,34 @@ function edgeLabel(edge: number | null) {
   return `${(edge * 100).toFixed(1)}%`;
 }
 
-function marketMinEdge(market?: string): number {
-  const m = (market || "").toLowerCase();
-  if (m.includes("matchup 2")) return MIN_EDGE_MATCHUP_2B;
-  if (m.includes("matchup 3")) return MIN_EDGE_MATCHUP_3B;
-  return MIN_EDGE;
+function evLabel(ev: number | null) {
+  if (ev === null || !Number.isFinite(ev)) return "";
+  const sign = ev > 0 ? "+" : "";
+  return `${sign}${ev.toFixed(3)}`;
 }
 
 export default function BetslipPage() {
   const [eventMeta, setEventMeta] = useState<EventMeta | null>(null);
   const [items, setItems] = useState<BetslipItem[]>([]);
-  const [edits, setEdits] = useState<Record<string, { oddsDec: string; book: string }>>({});
+  const [edits, setEdits] = useState<Record<string, { oddsDec: string; book: string; stakeUnits: string }>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
+  const [tour, setTour] = useState<"pga" | "dp">("pga");
 
-  async function load(sync = false) {
+  async function load(sync = false, tourOverride?: "pga" | "dp") {
     setLoading(true);
     setError(null);
     try {
-      const url = sync ? "/api/betslip?sync=1" : "/api/betslip";
+      const t = tourOverride ?? tour;
+      const url = sync ? `/api/betslip?tour=${t}&sync=1` : `/api/betslip?tour=${t}`;
       const res = await fetch(url, { cache: "no-store" });
       const json = await res.json();
       if (!json.ok) throw new Error(json.error || "Failed to load betslip");
       setEventMeta(json.eventMeta || null);
       setItems(json.items || []);
       setEdits((prev) => {
-        const next: Record<string, { oddsDec: string; book: string }> = { ...prev };
+        const next: Record<string, { oddsDec: string; book: string; stakeUnits: string }> = { ...prev };
         for (const it of json.items || []) {
           const oddsValue =
             it.oddsEnteredDec !== null && it.oddsEnteredDec !== undefined
@@ -82,6 +82,10 @@ export default function BetslipPage() {
           next[it.id] = {
             oddsDec: oddsValue !== null && oddsValue !== undefined ? String(oddsValue) : "",
             book: it.marketBookBest ?? "",
+            stakeUnits:
+              it.stakeUnitsEntered !== null && it.stakeUnitsEntered !== undefined
+                ? String(it.stakeUnitsEntered)
+                : "",
           };
         }
         return next;
@@ -95,7 +99,7 @@ export default function BetslipPage() {
 
   useEffect(() => {
     load();
-  }, []);
+  }, [tour]);
 
   async function saveOdds(id: string) {
     const raw = edits[id]?.oddsDec ?? "";
@@ -135,6 +139,31 @@ export default function BetslipPage() {
     await load();
   }
 
+  async function saveStake(id: string) {
+    const raw = edits[id]?.stakeUnits ?? "";
+    setError(null);
+    const parsedStake = raw.trim() === "" ? null : Number(raw);
+    if (parsedStake !== null && (!Number.isFinite(parsedStake) || parsedStake < 0)) {
+      setError("Stake must be a number greater than or equal to 0");
+      return;
+    }
+    const body =
+      parsedStake === null
+        ? { clearStakeOverride: true }
+        : { stakeUnitsEntered: parsedStake };
+    const res = await fetch(`/api/betslip/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const json = await res.json();
+    if (!json.ok) {
+      setError(json.error || "Failed to update stake");
+      return;
+    }
+    await load();
+  }
+
   async function setStatus(id: string, status: "PENDING" | "PLACED") {
     setError(null);
     const res = await fetch(`/api/betslip/${id}`, {
@@ -165,7 +194,7 @@ export default function BetslipPage() {
     setArchiving(true);
     setError(null);
     try {
-      const res = await fetch("/api/archive-placed", {
+      const res = await fetch(`/api/archive-placed?tour=${tour}`, {
         method: "POST",
         headers: { "x-archive-manual": "true" },
       });
@@ -201,6 +230,28 @@ export default function BetslipPage() {
           <h1 style={{ margin: 0, fontWeight: 700, fontSize: 28 }}>
             Betslip
           </h1>
+          <div style={{ display: "flex", gap: 6 }}>
+            <Button
+              onClick={() => setTour("pga")}
+              style={{
+                background: tour === "pga" ? "#f3b44b" : "transparent",
+                color: tour === "pga" ? "#111" : "#f3b44b",
+                border: "1px solid #f3b44b",
+              }}
+            >
+              PGA
+            </Button>
+            <Button
+              onClick={() => setTour("dp")}
+              style={{
+                background: tour === "dp" ? "#f3b44b" : "transparent",
+                color: tour === "dp" ? "#111" : "#f3b44b",
+                border: "1px solid #f3b44b",
+              }}
+            >
+              DP World Tour
+            </Button>
+          </div>
           <Button onClick={() => load(true)} disabled={loading}>
             Refresh
           </Button>
@@ -272,11 +323,13 @@ export default function BetslipPage() {
                   <tr>
                     {[
                       "Market",
+                      "Tour",
                       "Player",
                       "Opponents",
                       "Model Odds",
                       "Book",
                       "Odds",
+                      "EV / Unit",
                       "Edge",
                       "Stake",
                       "Actions",
@@ -299,13 +352,15 @@ export default function BetslipPage() {
                 </thead>
                 <tbody>
                   {pending.map((it, idx) => {
-                    const minEdge = marketMinEdge(it.market);
-                    const edgeLow = it.edgeProb !== null && it.edgeProb < minEdge;
-                    const rowBg = edgeLow ? "#2b1414" : idx % 2 === 0 ? "#000" : "#141414";
+                    const evLow = it.evPerUnit !== null && it.evPerUnit <= 0;
+                    const rowBg = evLow ? "#2b1414" : idx % 2 === 0 ? "#000" : "#141414";
                     return (
                       <tr key={it.id} style={{ background: rowBg }}>
                         <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
                           {it.market}
+                        </td>
+                        <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                          {(it.tour || "").toUpperCase() || "PGA"}
                         </td>
                         <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
                           {it.playerName}
@@ -361,15 +416,39 @@ export default function BetslipPage() {
                           />
                         </td>
                         <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                          <div style={{ fontWeight: 700 }}>{evLabel(it.evPerUnit)}</div>
+                        </td>
+                        <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
                           <div style={{ fontWeight: 700 }}>{edgeLabel(it.edgeProb)}</div>
-                          {edgeLow ? (
+                          {evLow ? (
                             <div style={{ color: "#ffb3b3", fontSize: 12 }}>
-                              Below {(minEdge * 100).toFixed(0)}%
+                              EV not positive
                             </div>
                           ) : null}
                         </td>
                         <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
-                          {fmt(it.stakeUnits, 1)}
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            value={edits[it.id]?.stakeUnits ?? ""}
+                            onChange={(e) =>
+                              setEdits((prev) => ({
+                                ...prev,
+                                [it.id]: { ...prev[it.id], stakeUnits: e.target.value },
+                              }))
+                            }
+                            onBlur={() => saveStake(it.id)}
+                            placeholder={fmt(it.stakeUnits, 1)}
+                            style={{
+                              background: "#111",
+                              color: "white",
+                              border: "1px solid #333",
+                              borderRadius: 8,
+                              padding: "6px 8px",
+                              width: 90,
+                            }}
+                          />
                         </td>
                         <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
                           <div style={{ display: "flex", gap: 8 }}>
@@ -429,10 +508,12 @@ export default function BetslipPage() {
                   <tr>
                     {[
                       "Market",
+                      "Tour",
                       "Player",
                       "Opponents",
                       "Book",
                       "Odds",
+                      "EV / Unit",
                       "Edge",
                       "Stake",
                       "Placed At",
@@ -458,6 +539,9 @@ export default function BetslipPage() {
                   {placed.map((it, idx) => (
                     <tr key={it.id} style={{ background: idx % 2 === 0 ? "#000" : "#141414" }}>
                       <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{it.market}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                        {(it.tour || "").toUpperCase() || "PGA"}
+                      </td>
                       <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{it.playerName}</td>
                       <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
                         {it.opponents ?? ""}
@@ -468,6 +552,7 @@ export default function BetslipPage() {
                       <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
                         {fmt(it.oddsEnteredDec ?? it.marketOddsBestDec, 2)}
                       </td>
+                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{evLabel(it.evPerUnit)}</td>
                       <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{edgeLabel(it.edgeProb)}</td>
                       <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{fmt(it.stakeUnits, 1)}</td>
                       <td style={{ padding: 10, borderBottom: "1px solid #222", color: "#bbb" }}>

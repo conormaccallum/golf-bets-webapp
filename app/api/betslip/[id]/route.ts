@@ -19,7 +19,7 @@ function splitOpponents(opponents: string | null) {
     .filter(Boolean);
 }
 
-function applyPlayerCap<T extends { id: string; stakeUnits: number }>(
+function applyPlayerCap<T extends { id: string; stakeUnits: number; manualStake: boolean }>(
   recalced: Array<T>,
   pending: Array<{
     id: string;
@@ -45,6 +45,7 @@ function applyPlayerCap<T extends { id: string; stakeUnits: number }>(
   for (const r of recalced) {
     const p = pending.find((x) => x.id === r.id);
     if (!p) continue;
+    if (r.manualStake) continue;
     const key = playerKey(p.dgId, p.playerName);
     sumByPlayerPending.set(key, (sumByPlayerPending.get(key) || 0) + r.stakeUnits);
 
@@ -98,6 +99,7 @@ function applyPlayerCap<T extends { id: string; stakeUnits: number }>(
   return recalced.map((r) => {
     const p = pending.find((x) => x.id === r.id);
     if (!p) return r;
+    if (r.manualStake) return r;
     const key = playerKey(p.dgId, p.playerName);
     const fPlayer = factorByPlayer.get(key) ?? 1;
     let fOpp = 1;
@@ -118,14 +120,14 @@ function applyPlayerCap<T extends { id: string; stakeUnits: number }>(
   });
 }
 
-async function recalcPending(eventId: string) {
+async function recalcPending(tour: string, eventId: string) {
   const prisma = getPrisma();
   const pending = await prisma.betslipItem.findMany({
-    where: { eventId, status: "PENDING" },
+    where: { tour, eventId, status: "PENDING" },
     orderBy: { createdAt: "asc" },
   });
   const placed = await prisma.betslipItem.findMany({
-    where: { eventId, status: "PLACED" },
+    where: { tour, eventId, status: "PLACED" },
     orderBy: { createdAt: "asc" },
   });
 
@@ -134,13 +136,16 @@ async function recalcPending(eventId: string) {
     const p = b.pModel ?? 0;
     const { edge, evPerUnit, kellyFull, kellyFrac, stakeRaw } = computeStakeUnits(p, oddsDec);
     const stakeMult = stakeMultiplierForMarket(b.market);
+    const computedStakeUnits = stakeRaw * stakeMult;
+    const manualStake = b.stakeUnitsEntered !== null && b.stakeUnitsEntered !== undefined;
     return {
       id: b.id,
       edgeProb: edge,
       evPerUnit,
       kellyFull,
       kellyFrac,
-      stakeUnits: stakeRaw * stakeMult,
+      stakeUnits: manualStake ? Number(b.stakeUnitsEntered) || 0 : computedStakeUnits,
+      manualStake,
     };
   });
 
@@ -165,7 +170,7 @@ async function recalcPending(eventId: string) {
   for (const r of withPlayerCap) {
     const cap = BANKROLL_UNITS * MAX_BET_FRAC;
     let stake = r.stakeUnits;
-    if (stake > cap) stake = cap;
+    if (!r.manualStake && stake > cap) stake = cap;
     await prisma.betslipItem.update({
       where: { id: r.id },
       data: {
@@ -195,12 +200,16 @@ export async function PATCH(
       data: {
         oddsEnteredDec: body.oddsEnteredDec ?? item.oddsEnteredDec,
         marketBookBest: body.marketBookBest ?? item.marketBookBest,
+        stakeUnitsEntered:
+          body.clearStakeOverride === true
+            ? null
+            : body.stakeUnitsEntered ?? item.stakeUnitsEntered,
         status: body.status ?? item.status,
         archivedAt: null,
       },
     });
 
-    await recalcPending(item.eventId);
+    await recalcPending(item.tour, item.eventId);
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "failed" }, { status: 500 });
@@ -217,7 +226,7 @@ export async function DELETE(
     const item = await prisma.betslipItem.findUnique({ where: { id } });
     if (!item) return NextResponse.json({ ok: true });
     await prisma.betslipItem.delete({ where: { id } });
-    await recalcPending(item.eventId);
+    await recalcPending(item.tour, item.eventId);
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "failed" }, { status: 500 });

@@ -1,0 +1,2 @@
+ALTER TABLE "BetslipItem"
+ADD COLUMN "stakeUnitsEntered" DOUBLE PRECISION;
