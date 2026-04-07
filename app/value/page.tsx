@@ -124,9 +124,9 @@ function buildDisplayRows(raw: TableData | null, market: Market): DisplayRow[] {
       : market === "top20"
       ? pickIndex(h, ["top20_prob_anchored_dh", "top20_prob_anchored", "top20_prob_dh", "top20_prob_model", "p_model"])
       : market === "make_cut"
-      ? pickIndex(h, ["p_make_cut_model", "p_make_cut", "make_cut_prob", "p_model"])
+      ? pickIndex(h, ["p_make_cut_anchored", "p_make_cut_model", "p_make_cut", "make_cut_prob", "p_model"])
       : market === "miss_cut"
-      ? pickIndex(h, ["p_miss_cut_model", "p_miss_cut", "miss_cut_prob", "p_model"])
+      ? pickIndex(h, ["p_miss_cut_anchored", "p_miss_cut_model", "p_miss_cut", "miss_cut_prob", "p_model"])
       : pickIndex(h, ["p_model", "win_prob", "model_prob"]);
 
   return raw.rows

@@ -291,9 +291,9 @@ async function buildOutputMap(tour: string, eventId: string) {
       } else if (m.key === "top10") {
         pModel = toNumber(r.top10_prob_anchored) ?? toNumber(r.top10_prob_model) ?? null;
       } else if (m.key === "missCut") {
-        pModel = toNumber(r.p_miss_cut_model) ?? null;
+        pModel = toNumber(r.p_miss_cut_anchored) ?? toNumber(r.p_miss_cut_model) ?? null;
       } else if (m.key === "makeCut") {
-        pModel = toNumber(r.p_make_cut_model) ?? null;
+        pModel = toNumber(r.p_make_cut_anchored) ?? toNumber(r.p_make_cut_model) ?? null;
       } else if (m.key === "top20") {
         pModel =
           toNumber(r.top20_prob_anchored_dh) ??
@@ -307,7 +307,9 @@ async function buildOutputMap(tour: string, eventId: string) {
           toNumber(r.top20_prob_anchored_dh) ??
           toNumber(r.top20_prob_anchored) ??
           toNumber(r.top20_prob_model) ??
+          toNumber(r.p_make_cut_anchored) ??
           toNumber(r.p_make_cut_model) ??
+          toNumber(r.p_miss_cut_anchored) ??
           toNumber(r.p_miss_cut_model) ??
           null;
       }

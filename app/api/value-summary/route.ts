@@ -119,7 +119,9 @@ export async function GET(req: Request) {
           toNumber(r.top20_prob_anchored_dh) ??
           toNumber(r.top20_prob_anchored) ??
           toNumber(r.top20_prob_model) ??
+          toNumber(r.p_make_cut_anchored) ??
           toNumber(r.p_make_cut_model) ??
+          toNumber(r.p_miss_cut_anchored) ??
           toNumber(r.p_miss_cut_model);
         const odds = toNumber(r.market_odds_best_dec || r.market_odds || r.odds);
         const evPerUnit =
