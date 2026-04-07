@@ -108,6 +108,23 @@ export async function GET(req: Request) {
 
       for (const r of objs) {
         const edge = toNumber(r.edge_prob);
+        const pModel =
+          toNumber(r.p_model) ??
+          toNumber(r.win_prob_anchored) ??
+          toNumber(r.win_prob_model) ??
+          toNumber(r.top5_prob_anchored) ??
+          toNumber(r.top5_prob_model) ??
+          toNumber(r.top10_prob_anchored) ??
+          toNumber(r.top10_prob_model) ??
+          toNumber(r.top20_prob_anchored_dh) ??
+          toNumber(r.top20_prob_anchored) ??
+          toNumber(r.top20_prob_model) ??
+          toNumber(r.p_make_cut_model) ??
+          toNumber(r.p_miss_cut_model);
+        const odds = toNumber(r.market_odds_best_dec || r.market_odds || r.odds);
+        const evPerUnit =
+          toNumber(r.ev_per_unit) ??
+          (pModel !== null && odds !== null && odds > 1 ? pModel * (odds - 1) - (1 - pModel) : null);
         if (edge === null) continue;
         all.push({
           market: normalizeMarketName(m.key),
@@ -117,24 +134,13 @@ export async function GET(req: Request) {
           market_odds_best_dec: r.market_odds_best_dec || r.market_odds || r.odds || "",
           market_book_best: r.market_book_best || r.book || r.market_book || "",
           edge_prob: edge,
-          p_model:
-            toNumber(r.p_model) ??
-            toNumber(r.win_prob_anchored) ??
-            toNumber(r.win_prob_model) ??
-            toNumber(r.top5_prob_anchored) ??
-            toNumber(r.top5_prob_model) ??
-            toNumber(r.top10_prob_anchored) ??
-            toNumber(r.top10_prob_model) ??
-            toNumber(r.top20_prob_anchored_dh) ??
-            toNumber(r.top20_prob_anchored) ??
-            toNumber(r.top20_prob_model) ??
-            toNumber(r.p_make_cut_model) ??
-            toNumber(r.p_miss_cut_model),
+          ev_per_unit: evPerUnit,
+          p_model: pModel,
         });
       }
     }
 
-    all.sort((a, b) => b.edge_prob - a.edge_prob);
+    all.sort((a, b) => (b.ev_per_unit ?? -999) - (a.ev_per_unit ?? -999) || b.edge_prob - a.edge_prob);
     const top = all.slice(0, 20);
 
     const betslipItems = await prisma.betslipItem.findMany({

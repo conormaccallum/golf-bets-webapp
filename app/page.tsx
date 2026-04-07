@@ -10,6 +10,7 @@ type SummaryRow = {
   market_odds_best_dec?: string | number;
   market_book_best?: string;
   edge_prob?: number;
+  ev_per_unit?: number;
   p_model?: number;
   opponents?: string;
 };
@@ -29,10 +30,6 @@ type ValueSummaryResponse = {
   };
   betslipKeys?: string[];
 };
-
-const MIN_EDGE = 0.04;
-const MIN_EDGE_MATCHUP_2B = 0.0784;
-const MIN_EDGE_MATCHUP_3B = 0.1153;
 
 function toNumber(v: unknown): number | null {
   if (v === null || v === undefined) return null;
@@ -62,11 +59,11 @@ function formatEdge(v: unknown): string {
   return `${(n * 100).toFixed(1)}%`;
 }
 
-function marketMinEdge(market?: string): number {
-  const m = (market || "").toLowerCase();
-  if (m.includes("matchup 2")) return MIN_EDGE_MATCHUP_2B;
-  if (m.includes("matchup 3")) return MIN_EDGE_MATCHUP_3B;
-  return MIN_EDGE;
+function formatEv(v: unknown): string {
+  const n = toNumber(v);
+  if (n === null) return "-";
+  const sign = n > 0 ? "+" : "";
+  return `${sign}${n.toFixed(3)}`;
 }
 
 function formatDateTime(value: string | null | undefined): string {
@@ -272,13 +269,6 @@ export default function HomePage() {
     setAddingId(id);
     setError(null);
     try {
-      const edge = toNumber(row.edge_prob);
-      const minEdge = marketMinEdge(row.market);
-      if (edge !== null && edge < minEdge) {
-        setError(
-          `Below threshold for ${row.market ?? "market"} (min ${(minEdge * 100).toFixed(1)}%).`
-        );
-      }
       const payload = {
         tour,
         market: row.market ?? "",
@@ -403,7 +393,7 @@ export default function HomePage() {
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
                 <thead>
                   <tr>
-                    {["Market", "Player", "Opponents", "Book", "Odds", "Model", "Edge", ""].map(
+                    {["Market", "Player", "Opponents", "Book", "Odds", "Model", "EV / Unit", "Edge", ""].map(
                       (h) => (
                         <th
                           key={h}
@@ -423,9 +413,7 @@ export default function HomePage() {
                 </thead>
                 <tbody>
                   {rows.map((r, i) => {
-                    const edge = toNumber(r.edge_prob) ?? 0;
-                    const minEdge = marketMinEdge(r.market);
-                    const isValue = edge >= minEdge;
+                    const isValue = (toNumber(r.ev_per_unit) ?? -999) > 0;
                     const rowId = String(r.dg_id ?? r.player_name ?? i);
                     const rowKey = makeUniqueKey({
                       tour,
@@ -463,6 +451,16 @@ export default function HomePage() {
                         </td>
                         <td style={{ padding: "8px 10px", borderBottom: "1px solid #111" }}>
                           {formatPct(r.p_model)}
+                        </td>
+                        <td
+                          style={{
+                            padding: "8px 10px",
+                            borderBottom: "1px solid #111",
+                            color: isValue ? "#8bffb6" : "#bbb",
+                            fontWeight: isValue ? 700 : 400,
+                          }}
+                        >
+                          {formatEv(r.ev_per_unit)}
                         </td>
                         <td
                           style={{

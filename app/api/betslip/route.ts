@@ -5,6 +5,7 @@ import {
   computeStakeUnits,
   BANKROLL_UNITS,
   MIN_EDGE,
+  MIN_EV_PER_UNIT,
   MAX_BET_FRAC,
   stakeMultiplierForMarket,
 } from "@/lib/staking";
@@ -408,6 +409,7 @@ export async function GET(req: Request) {
       items,
       bankrollUnits: BANKROLL_UNITS,
       minEdge: MIN_EDGE,
+      minEvPerUnit: MIN_EV_PER_UNIT,
     });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "failed" }, { status: 500 });

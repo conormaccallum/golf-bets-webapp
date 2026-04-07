@@ -34,10 +34,6 @@ type DisplayRow = {
   marketLabel: string;
 };
 
-const MIN_EDGE = 0.04;
-const MIN_EDGE_MATCHUP_2B = 0.0784;
-const MIN_EDGE_MATCHUP_3B = 0.1153;
-
 function toNumber(x: unknown): number | null {
   if (x === null || x === undefined) return null;
   const s = String(x).trim();
@@ -87,12 +83,6 @@ function marketLabel(market: Market): string {
   if (market === "miss_cut") return "Miss Cut";
   if (market === "matchup_2b") return "Matchup 2-Ball";
   return "Matchup 3-Ball";
-}
-
-function marketMinEdge(market: Market): number {
-  if (market === "matchup_2b") return MIN_EDGE_MATCHUP_2B;
-  if (market === "matchup_3b") return MIN_EDGE_MATCHUP_3B;
-  return MIN_EDGE;
 }
 
 function makeUniqueKey(input: {
@@ -164,7 +154,7 @@ function buildDisplayRows(raw: TableData | null, market: Market): DisplayRow[] {
       };
     })
     .filter((r) => r.playerName)
-    .sort((a, b) => (b.edge ?? -999) - (a.edge ?? -999));
+    .sort((a, b) => (b.evPerUnit ?? -999) - (a.evPerUnit ?? -999) || (b.edge ?? -999) - (a.edge ?? -999));
 }
 
 export default function ValueScreensPage() {
@@ -178,8 +168,8 @@ export default function ValueScreensPage() {
   const [lockMsg, setLockMsg] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [onlyValue, setOnlyValue] = useState(true);
-  const [minEdge, setMinEdge] = useState("");
-  const [metricView, setMetricView] = useState<"edge" | "ev">("edge");
+  const [minEv, setMinEv] = useState("");
+  const [metricView, setMetricView] = useState<"edge" | "ev">("ev");
   const [addingId, setAddingId] = useState<string | null>(null);
 
   async function load(ignoreLock = false) {
@@ -270,16 +260,21 @@ export default function ValueScreensPage() {
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const edgeFloor = minEdge.trim() === "" ? marketMinEdge(market) : (Number(minEdge) || 0) / 100;
-    return rows.filter((row) => {
+    const evFloor = minEv.trim() === "" ? 0 : Number(minEv) || 0;
+    const sorted = [...rows].sort((a, b) =>
+      metricView === "ev"
+        ? (b.evPerUnit ?? -999) - (a.evPerUnit ?? -999) || (b.edge ?? -999) - (a.edge ?? -999)
+        : (b.edge ?? -999) - (a.edge ?? -999) || (b.evPerUnit ?? -999) - (a.evPerUnit ?? -999)
+    );
+    return sorted.filter((row) => {
       if (q) {
         const hay = `${row.playerName} ${row.opponents} ${row.book}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
-      if (onlyValue && (row.edge ?? -999) < edgeFloor) return false;
+      if (onlyValue && (row.evPerUnit ?? -999) <= evFloor) return false;
       return true;
     });
-  }, [rows, search, minEdge, onlyValue, market]);
+  }, [rows, search, minEv, onlyValue, metricView]);
 
   async function addToBetslip(row: DisplayRow) {
     const rowId = `${row.playerName}|${row.marketLabel}|${row.opponents}`;
@@ -356,9 +351,9 @@ export default function ValueScreensPage() {
           />
 
           <input
-            value={minEdge}
-            onChange={(e) => setMinEdge(e.target.value)}
-            placeholder={`Min edge % (${(marketMinEdge(market) * 100).toFixed(1)} default)`}
+            value={minEv}
+            onChange={(e) => setMinEv(e.target.value)}
+            placeholder="Min EV / unit (0.000 default)"
             style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #333", background: "#111", color: "white", width: 190 }}
           />
 
@@ -420,7 +415,7 @@ export default function ValueScreensPage() {
                     opponents: row.opponents,
                   });
                   const alreadyAdded = betslipKeySet.has(uniqueKey);
-                  const isValue = (row.edge ?? -999) >= marketMinEdge(market);
+                  const isValue = (row.evPerUnit ?? -999) > 0;
                   const metricValue = metricView === "edge" ? formatEdge(row.edge) : formatEv(row.evPerUnit);
                   return (
                     <tr key={rowId + i} style={{ background: i % 2 === 0 ? "#000" : "#141414" }}>
