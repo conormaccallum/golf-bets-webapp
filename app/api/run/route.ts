@@ -96,6 +96,9 @@ export async function POST(req: Request) {
     const eventMeta = await fetchJsonFromOutputs<any>(baseRaw, tour, "event_meta.json");
 
     const betslipCsv = await fetchTextFromOutputs(baseRaw, tour, "latest_betslip.csv");
+    const winCsv = await fetchTextFromOutputs(baseRaw, tour, "latest_value_win.csv");
+    const top5Csv = await fetchTextFromOutputs(baseRaw, tour, "latest_value_top5.csv");
+    const top10Csv = await fetchTextFromOutputs(baseRaw, tour, "latest_value_top10.csv");
     const top20Csv = await fetchTextFromOutputs(baseRaw, tour, "latest_value_top20.csv");
     const makeCutCsv = await fetchTextFromOutputs(baseRaw, tour, "latest_value_make_cut.csv");
     const missCutCsv = await fetchTextFromOutputs(baseRaw, tour, "latest_value_miss_cut.csv");
@@ -106,9 +109,12 @@ export async function POST(req: Request) {
       ok: true,
       tour,
       meta: eventMeta,
-      raw: { betslipCsv, top20Csv, makeCutCsv, missCutCsv, matchup2Csv, matchup3Csv },
+      raw: { betslipCsv, winCsv, top5Csv, top10Csv, top20Csv, makeCutCsv, missCutCsv, matchup2Csv, matchup3Csv },
       tables: {
         betslip: parseCsv(betslipCsv),
+        win: parseCsv(winCsv),
+        top5: parseCsv(top5Csv),
+        top10: parseCsv(top10Csv),
         top20: parseCsv(top20Csv),
         makeCut: parseCsv(makeCutCsv),
         missCut: parseCsv(missCutCsv),

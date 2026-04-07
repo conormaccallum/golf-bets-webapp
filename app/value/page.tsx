@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { HeaderNav } from "../components/ui";
 
-type Market = "top20" | "make_cut" | "miss_cut" | "matchup_2b" | "matchup_3b";
+type Market = "win" | "top5" | "top10" | "top20" | "make_cut" | "miss_cut" | "matchup_2b" | "matchup_3b";
 
 type TableData = {
   headers: string[];
@@ -46,6 +46,9 @@ function formatEdge(e: number | null): string {
 }
 
 function modelProbHeader(market: Market): string {
+  if (market === "win") return "Model Prob. to Win";
+  if (market === "top5") return "Model Prob. of Top 5";
+  if (market === "top10") return "Model Prob. of Top 10";
   if (market === "top20") return "Model Prob. of Top 20";
   if (market === "make_cut") return "Model Prob. of Make Cut";
   if (market === "miss_cut") return "Model Prob. of Miss Cut";
@@ -79,7 +82,13 @@ function transformValueTable(raw: TableData | null, market: Market): TableData |
   ]);
 
   const idxModelProb =
-    market === "top20"
+    market === "win"
+      ? pickIndex(h, ["win_prob_anchored", "win_prob_model", "p_model"])
+      : market === "top5"
+      ? pickIndex(h, ["top5_prob_anchored", "top5_prob_model", "p_model"])
+      : market === "top10"
+      ? pickIndex(h, ["top10_prob_anchored", "top10_prob_model", "p_model"])
+      : market === "top20"
       ? pickIndex(h, [
           "top20_prob_anchored_dh",
           "top20_prob_anchored",
@@ -225,6 +234,9 @@ export default function ValueScreensPage() {
       const json = await res.json();
       if (!json?.ok) throw new Error(json?.error ?? "API error");
 
+      if (market === "win") setRawTable(json.tables?.win ?? null);
+      if (market === "top5") setRawTable(json.tables?.top5 ?? null);
+      if (market === "top10") setRawTable(json.tables?.top10 ?? null);
       if (market === "top20") setRawTable(json.tables?.top20 ?? null);
       if (market === "make_cut") setRawTable(json.tables?.makeCut ?? null);
       if (market === "miss_cut") setRawTable(json.tables?.missCut ?? null);
@@ -331,6 +343,9 @@ export default function ValueScreensPage() {
               color: "white",
             }}
           >
+            <option value="win">Win</option>
+            <option value="top5">Top 5</option>
+            <option value="top10">Top 10</option>
             <option value="top20">Top 20</option>
             <option value="make_cut">Make Cut</option>
             <option value="miss_cut">Miss Cut</option>

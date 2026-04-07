@@ -28,6 +28,9 @@ async function fetchFromOutputs(tour: string, name: string): Promise<Response> {
 }
 
 function normalizeMarketName(name: string) {
+  if (name === "win") return "Win";
+  if (name === "top5") return "Top 5";
+  if (name === "top10") return "Top 10";
   if (name === "top20") return "Top 20";
   if (name === "makeCut") return "Make Cut";
   if (name === "missCut") return "Miss Cut";
@@ -226,6 +229,9 @@ async function recalcPending(tour: string, eventId: string) {
 
 async function buildOutputMap(tour: string, eventId: string) {
   const markets = [
+    { key: "win", file: "latest_value_win.csv" },
+    { key: "top5", file: "latest_value_top5.csv" },
+    { key: "top10", file: "latest_value_top10.csv" },
     { key: "top20", file: "latest_value_top20.csv" },
     { key: "makeCut", file: "latest_value_make_cut.csv" },
     { key: "missCut", file: "latest_value_miss_cut.csv" },
@@ -277,7 +283,13 @@ async function buildOutputMap(tour: string, eventId: string) {
         toNumber(r.market_odds_best_dec) ?? toNumber(r.market_odds) ?? toNumber(r.odds);
       const marketBookBest = r.market_book_best || r.market_book || r.book || null;
       let pModel: number | null = null;
-      if (m.key === "missCut") {
+      if (m.key === "win") {
+        pModel = toNumber(r.win_prob_anchored) ?? toNumber(r.win_prob_model) ?? null;
+      } else if (m.key === "top5") {
+        pModel = toNumber(r.top5_prob_anchored) ?? toNumber(r.top5_prob_model) ?? null;
+      } else if (m.key === "top10") {
+        pModel = toNumber(r.top10_prob_anchored) ?? toNumber(r.top10_prob_model) ?? null;
+      } else if (m.key === "missCut") {
         pModel = toNumber(r.p_miss_cut_model) ?? null;
       } else if (m.key === "makeCut") {
         pModel = toNumber(r.p_make_cut_model) ?? null;

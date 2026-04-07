@@ -29,6 +29,9 @@ async function fetchWithFallback(tour: string, name: string, cacheBust: number) 
 }
 
 function normalizeMarketName(name: string) {
+  if (name === "win") return "Win";
+  if (name === "top5") return "Top 5";
+  if (name === "top10") return "Top 10";
   if (name === "top20") return "Top 20";
   if (name === "makeCut") return "Make Cut";
   if (name === "missCut") return "Miss Cut";
@@ -83,6 +86,9 @@ export async function GET(req: Request) {
     }
 
     const markets = [
+      { key: "win", file: "latest_value_win.csv" },
+      { key: "top5", file: "latest_value_top5.csv" },
+      { key: "top10", file: "latest_value_top10.csv" },
       { key: "top20", file: "latest_value_top20.csv" },
       { key: "makeCut", file: "latest_value_make_cut.csv" },
       { key: "missCut", file: "latest_value_miss_cut.csv" },
@@ -111,7 +117,19 @@ export async function GET(req: Request) {
           market_odds_best_dec: r.market_odds_best_dec || r.market_odds || r.odds || "",
           market_book_best: r.market_book_best || r.book || r.market_book || "",
           edge_prob: edge,
-          p_model: toNumber(r.p_model) ?? toNumber(r.top20_prob_anchored_dh) ?? toNumber(r.top20_prob_anchored) ?? toNumber(r.top20_prob_model) ?? toNumber(r.p_make_cut_model) ?? toNumber(r.p_miss_cut_model),
+          p_model:
+            toNumber(r.p_model) ??
+            toNumber(r.win_prob_anchored) ??
+            toNumber(r.win_prob_model) ??
+            toNumber(r.top5_prob_anchored) ??
+            toNumber(r.top5_prob_model) ??
+            toNumber(r.top10_prob_anchored) ??
+            toNumber(r.top10_prob_model) ??
+            toNumber(r.top20_prob_anchored_dh) ??
+            toNumber(r.top20_prob_anchored) ??
+            toNumber(r.top20_prob_model) ??
+            toNumber(r.p_make_cut_model) ??
+            toNumber(r.p_miss_cut_model),
         });
       }
     }
