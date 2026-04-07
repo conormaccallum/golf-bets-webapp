@@ -29,6 +29,7 @@ type DisplayRow = {
   marketProb: number | null;
   modelProb: number | null;
   edge: number | null;
+  evPerUnit: number | null;
   dgId: string | null;
   marketLabel: string;
 };
@@ -69,6 +70,12 @@ function formatEdge(e: number | null): string {
   const pct = e * 100;
   const sign = pct > 0 ? "+" : "";
   return `${sign}${pct.toFixed(1)}%`;
+}
+
+function formatEv(v: number | null): string {
+  if (v === null) return "";
+  const sign = v > 0 ? "+" : "";
+  return `${sign}${v.toFixed(3)}`;
 }
 
 function marketLabel(market: Market): string {
@@ -139,6 +146,10 @@ function buildDisplayRows(raw: TableData | null, market: Market): DisplayRow[] {
       const modelProb = idxModelProb >= 0 ? toNumber(r[idxModelProb]) : null;
       const edgeCsv = idxEdge >= 0 ? toNumber(r[idxEdge]) : null;
       const edge = edgeCsv !== null ? edgeCsv : modelProb !== null && marketProb !== null ? modelProb - marketProb : null;
+      const evPerUnit =
+        modelProb !== null && odds !== null && odds > 1
+          ? modelProb * (odds - 1) - (1 - modelProb)
+          : null;
       return {
         playerName: idxPlayer >= 0 ? r[idxPlayer] ?? "" : "",
         opponents: idxOpp >= 0 ? r[idxOpp] ?? "" : "",
@@ -147,6 +158,7 @@ function buildDisplayRows(raw: TableData | null, market: Market): DisplayRow[] {
         marketProb,
         modelProb,
         edge,
+        evPerUnit,
         dgId: idxDgId >= 0 && r[idxDgId] ? String(r[idxDgId]) : null,
         marketLabel: marketLabel(market),
       };
@@ -167,6 +179,7 @@ export default function ValueScreensPage() {
   const [search, setSearch] = useState("");
   const [onlyValue, setOnlyValue] = useState(true);
   const [minEdge, setMinEdge] = useState("");
+  const [metricView, setMetricView] = useState<"edge" | "ev">("edge");
   const [addingId, setAddingId] = useState<string | null>(null);
 
   async function load(ignoreLock = false) {
@@ -354,6 +367,15 @@ export default function ValueScreensPage() {
             Value only
           </label>
 
+          <select
+            value={metricView}
+            onChange={(e) => setMetricView(e.target.value as "edge" | "ev")}
+            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #333", background: "#111", color: "white" }}
+          >
+            <option value="edge">Show Edge</option>
+            <option value="ev">Show EV / Unit</option>
+          </select>
+
           <Button onClick={() => load(false)} disabled={loading || locked}>
             {loading ? "Loading..." : "Refresh"}
           </Button>
@@ -379,7 +401,7 @@ export default function ValueScreensPage() {
             <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 1100 }}>
               <thead>
                 <tr>
-                  {["Player", "Opponent(s)", "Odds", "Book", "Market Win %", "Model Win %", "Edge", ""].map((hh) => (
+                  {["Player", "Opponent(s)", "Odds", "Book", "Market Win %", "Model Win %", metricView === "edge" ? "Edge" : "EV / Unit", ""].map((hh) => (
                     <th key={hh} style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #333", background: "#111", color: "white", whiteSpace: "nowrap" }}>
                       {hh}
                     </th>
@@ -399,6 +421,7 @@ export default function ValueScreensPage() {
                   });
                   const alreadyAdded = betslipKeySet.has(uniqueKey);
                   const isValue = (row.edge ?? -999) >= marketMinEdge(market);
+                  const metricValue = metricView === "edge" ? formatEdge(row.edge) : formatEv(row.evPerUnit);
                   return (
                     <tr key={rowId + i} style={{ background: i % 2 === 0 ? "#000" : "#141414" }}>
                       <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{row.playerName}</td>
@@ -408,7 +431,7 @@ export default function ValueScreensPage() {
                       <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{formatPct(row.marketProb)}</td>
                       <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{formatPct(row.modelProb)}</td>
                       <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap", color: isValue ? "#8bffb6" : "#bbb", fontWeight: isValue ? 700 : 400 }}>
-                        {formatEdge(row.edge)}
+                        {metricValue}
                       </td>
                       <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>
                         <Button onClick={() => addToBetslip(row)} disabled={addingId === rowId || alreadyAdded}>
