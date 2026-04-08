@@ -12,6 +12,24 @@ function normalizeTour(input: string | null) {
   return "pga";
 }
 
+function betSignature(input: {
+  betType: string;
+  playerName: string;
+  dgId: number | null;
+  marketBookBest: string | null;
+  marketOddsBestDec: number | null;
+  stakeUnits: number | null;
+}) {
+  return [
+    input.betType,
+    input.playerName,
+    input.dgId ?? "",
+    input.marketBookBest ?? "",
+    input.marketOddsBestDec ?? "",
+    input.stakeUnits ?? "",
+  ].join("|");
+}
+
 async function fetchFromOutputs(tour: string, name: string): Promise<Response> {
   const primary = `${OUTPUT_BASE}/${tour}/${name}?t=${Date.now()}`;
   const fallback = `${OUTPUT_BASE}/${name}?t=${Date.now()}`;
@@ -73,30 +91,67 @@ export async function POST(req: Request) {
         },
       });
 
-      await prisma.bet.deleteMany({ where: { weekId: week.id } });
+      const existingBets = await prisma.bet.findMany({ where: { weekId: week.id } });
+      const existingBySig = new Map(
+        existingBets.map((b) => [
+          betSignature({
+            betType: b.betType,
+            playerName: b.playerName,
+            dgId: b.dgId,
+            marketBookBest: b.marketBookBest,
+            marketOddsBestDec: b.marketOddsBestDec,
+            stakeUnits: b.stakeUnits,
+          }),
+          b,
+        ])
+      );
 
       for (const b of group) {
         const dgIdNum =
           b.dgId !== null && b.dgId !== undefined && b.dgId !== ""
             ? Number(b.dgId)
             : null;
-        await prisma.bet.create({
-          data: {
-            weekId: week.id,
-            betType: b.market,
-            tour,
-            playerName: b.playerName,
-            dgId: Number.isFinite(dgIdNum as number) ? (dgIdNum as number) : null,
-            marketBookBest: b.marketBookBest ?? "",
-            marketOddsBestDec: b.oddsEnteredDec ?? b.marketOddsBestDec ?? 0,
-            stakeUnits: b.stakeUnits ?? 0,
-            pModel: b.pModel ?? 0,
-            edgeProb: b.edgeProb ?? 0,
-            evPerUnit: b.evPerUnit ?? 0,
-            kellyFull: b.kellyFull ?? 0,
-            kellyFrac: b.kellyFrac ?? 0,
-          },
+        const betData = {
+          weekId: week.id,
+          betType: b.market,
+          tour,
+          playerName: b.playerName,
+          dgId: Number.isFinite(dgIdNum as number) ? (dgIdNum as number) : null,
+          marketBookBest: b.marketBookBest ?? "",
+          marketOddsBestDec: b.oddsEnteredDec ?? b.marketOddsBestDec ?? 0,
+          stakeUnits: b.stakeUnits ?? 0,
+          pModel: b.pModel ?? 0,
+          edgeProb: b.edgeProb ?? 0,
+          evPerUnit: b.evPerUnit ?? 0,
+          kellyFull: b.kellyFull ?? 0,
+          kellyFrac: b.kellyFrac ?? 0,
+        };
+        const sig = betSignature({
+          betType: betData.betType,
+          playerName: betData.playerName,
+          dgId: betData.dgId,
+          marketBookBest: betData.marketBookBest,
+          marketOddsBestDec: betData.marketOddsBestDec,
+          stakeUnits: betData.stakeUnits,
         });
+        const existing = existingBySig.get(sig);
+        if (existing) {
+          await prisma.bet.update({
+            where: { id: existing.id },
+            data: {
+              marketBookBest: betData.marketBookBest,
+              marketOddsBestDec: betData.marketOddsBestDec,
+              stakeUnits: betData.stakeUnits,
+              pModel: betData.pModel,
+              edgeProb: betData.edgeProb,
+              evPerUnit: betData.evPerUnit,
+              kellyFull: betData.kellyFull,
+              kellyFrac: betData.kellyFrac,
+            },
+          });
+          continue;
+        }
+        await prisma.bet.create({ data: betData });
       }
     }
 
