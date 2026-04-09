@@ -150,32 +150,18 @@ export function HeaderNav() {
     >
       <nav
         style={{
-          display: "grid",
-          gridTemplateColumns: "auto 1fr auto",
+          display: "flex",
+          justifyContent: "center",
           alignItems: "center",
+          gap: 14,
           padding: "0 16px",
         }}
       >
-        {/* LEFT — LOGO */}
-        <div>
-          <img
-            src="/logo.png"
-            alt="Logo"
-            style={{ height: 70, objectFit: "contain" }}
-          />
-        </div>
-
-        {/* CENTER — NAV BUTTONS */}
-        <div style={{ display: "flex", justifyContent: "center", gap: 14 }}>
-          <NavLink href="/">Home</NavLink>
-          <NavLink href="/betslip">Betslip</NavLink>
-          <NavLink href="/value">Value Screens</NavLink>
-          <NavLink href="/event-model">Event Model</NavLink>
-          <NavLink href="/performance">Performance</NavLink>
-        </div>
-
-        {/* RIGHT — spacer */}
-        <div />
+        <NavLink href="/">Home</NavLink>
+        <NavLink href="/betslip">Betslip</NavLink>
+        <NavLink href="/value">Value Screens</NavLink>
+        <NavLink href="/event-model">Event Model</NavLink>
+        <NavLink href="/performance">Performance</NavLink>
       </nav>
     </header>
   );
