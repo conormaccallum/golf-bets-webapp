@@ -47,14 +47,14 @@ export default async function EventModelPage({
     : [];
 
   return (
-    <div style={{ minHeight: "100vh", background: "#000", color: "white" }}>
+    <div style={{ minHeight: "100vh", background: "var(--gb-bg)", color: "var(--gb-text)" }}>
       <HeaderNav />
 
       <main style={{ padding: 24, maxWidth: 1400, margin: "0 auto" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div>
             <h1 style={{ margin: 0, fontWeight: 700, fontSize: 28 }}>Event Model</h1>
-            <div style={{ color: "#bbb", marginTop: 6 }}>
+            <div style={{ color: "var(--gb-muted)", marginTop: 6 }}>
               {latestEvent
                 ? `${latestEvent.eventName} ${latestEvent.eventYear} • ${tour.toUpperCase()} • ${new Date(latestEvent.capturedAt).toLocaleString("en-GB", {
                     year: "2-digit",
@@ -75,9 +75,9 @@ export default async function EventModelPage({
                 textDecoration: "none",
                 padding: "8px 12px",
                 borderRadius: 10,
-                border: "1px solid #333",
-                color: "white",
-                background: tour === "pga" ? "#1b3a26" : "#111",
+                border: "1px solid var(--gb-border)",
+                color: "var(--gb-text)",
+                background: tour === "pga" ? "var(--gb-accent)" : "var(--gb-surface)",
                 fontWeight: 700,
               }}
             >
@@ -89,9 +89,9 @@ export default async function EventModelPage({
                 textDecoration: "none",
                 padding: "8px 12px",
                 borderRadius: 10,
-                border: "1px solid #333",
-                color: "white",
-                background: tour === "dp" ? "#1b3a26" : "#111",
+                border: "1px solid var(--gb-border)",
+                color: "var(--gb-text)",
+                background: tour === "dp" ? "var(--gb-accent)" : "var(--gb-surface)",
                 fontWeight: 700,
               }}
             >
@@ -103,16 +103,16 @@ export default async function EventModelPage({
         <div style={{ height: 16 }} />
 
         {!latestEvent ? (
-          <div style={{ border: "1px solid #333", borderRadius: 12, padding: 16 }}>
+          <div style={{ border: "1px solid var(--gb-border)", borderRadius: 12, padding: 16 }}>
             No pre-event snapshot has been captured for this tour yet.
           </div>
         ) : (
           <div
             style={{
               overflowX: "auto",
-              border: "1px solid #333",
+              border: "1px solid var(--gb-border)",
               borderRadius: 14,
-              background: "#000",
+              background: "var(--gb-bg)",
             }}
           >
             <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 1500 }}>
@@ -146,9 +146,9 @@ export default async function EventModelPage({
                       style={{
                         textAlign: "left",
                         padding: 10,
-                        borderBottom: "1px solid #333",
-                        background: "#111",
-                        color: "white",
+                        borderBottom: "1px solid var(--gb-border)",
+                        background: "var(--gb-surface)",
+                        color: "var(--gb-text)",
                         whiteSpace: "nowrap",
                         position: "sticky",
                         top: 0,
@@ -161,28 +161,28 @@ export default async function EventModelPage({
               </thead>
               <tbody>
                 {rows.map((row, i) => (
-                  <tr key={row.id} style={{ background: i % 2 === 0 ? "#000" : "#141414" }}>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{row.playerName}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{fmtPct(row.winProbAnchored ?? row.winProbModel)}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{fmtOdds(row.winProbAnchored ?? row.winProbModel)}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{fmtPct(row.top5ProbAnchored ?? row.top5ProbModel)}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{fmtOdds(row.top5ProbAnchored ?? row.top5ProbModel)}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{fmtPct(row.top10ProbAnchored ?? row.top10ProbModel)}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{fmtOdds(row.top10ProbAnchored ?? row.top10ProbModel)}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{fmtPct(row.top20ProbAnchoredDh ?? row.top20ProbAnchored ?? row.top20ProbModel)}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{fmtOdds(row.top20ProbAnchoredDh ?? row.top20ProbAnchored ?? row.top20ProbModel)}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{fmtPct(row.pMakeCutModel)}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{fmtNum(row.skillPred)}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{fmtNum(row.customPred)}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{fmtNum(row.sgApp)}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{fmtNum(row.sgOtt)}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{fmtNum(row.sgArg)}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{fmtNum(row.sgPutt)}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{fmtNum(row.sgTotal)}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{fmtNum(row.totalFitAdjustment)}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{fmtNum(row.totalCourseHistoryAdjustment)}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{fmtNum(row.timingAdjustment)}</td>
-                    <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{fmtNum(row.stdDeviation)}</td>
+                  <tr key={row.id} style={{ background: i % 2 === 0 ? "var(--gb-bg)" : "var(--gb-row-alt)" }}>
+                    <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{row.playerName}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{fmtPct(row.winProbAnchored ?? row.winProbModel)}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{fmtOdds(row.winProbAnchored ?? row.winProbModel)}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{fmtPct(row.top5ProbAnchored ?? row.top5ProbModel)}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{fmtOdds(row.top5ProbAnchored ?? row.top5ProbModel)}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{fmtPct(row.top10ProbAnchored ?? row.top10ProbModel)}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{fmtOdds(row.top10ProbAnchored ?? row.top10ProbModel)}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{fmtPct(row.top20ProbAnchoredDh ?? row.top20ProbAnchored ?? row.top20ProbModel)}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{fmtOdds(row.top20ProbAnchoredDh ?? row.top20ProbAnchored ?? row.top20ProbModel)}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{fmtPct(row.pMakeCutModel)}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{fmtNum(row.skillPred)}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{fmtNum(row.customPred)}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{fmtNum(row.sgApp)}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{fmtNum(row.sgOtt)}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{fmtNum(row.sgArg)}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{fmtNum(row.sgPutt)}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{fmtNum(row.sgTotal)}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{fmtNum(row.totalFitAdjustment)}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{fmtNum(row.totalCourseHistoryAdjustment)}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{fmtNum(row.timingAdjustment)}</td>
+                    <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{fmtNum(row.stdDeviation)}</td>
                   </tr>
                 ))}
               </tbody>

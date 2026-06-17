@@ -31,9 +31,9 @@ export default function WeekControls(props: { weekId: number; isFinal: boolean }
         style={{
           padding: "6px 10px",
           borderRadius: 10,
-          border: "1px solid #333",
-          background: "#111",
-          color: "white",
+          border: "1px solid var(--gb-border)",
+          background: "var(--gb-surface)",
+          color: "var(--gb-text)",
           cursor: loading ? "not-allowed" : "pointer",
           fontSize: 12,
         }}
@@ -51,9 +51,9 @@ export default function WeekControls(props: { weekId: number; isFinal: boolean }
       style={{
         padding: "6px 10px",
         borderRadius: 10,
-        border: "1px solid #333",
-        background: "#111",
-        color: "white",
+        border: "1px solid var(--gb-border)",
+        background: "var(--gb-surface)",
+        color: "var(--gb-text)",
         cursor: loading ? "not-allowed" : "pointer",
         fontSize: 12,
       }}

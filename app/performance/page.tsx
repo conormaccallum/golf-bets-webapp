@@ -53,7 +53,7 @@ export default async function PerformancePage() {
   );
 
   return (
-    <div style={{ minHeight: "100vh", background: "#000", color: "white" }}>
+    <div style={{ minHeight: "100vh", background: "var(--gb-bg)", color: "var(--gb-text)" }}>
       <HeaderNav />
 
       <main style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
@@ -61,7 +61,7 @@ export default async function PerformancePage() {
           Performance
         </h1>
 
-        <div style={{ border: "1px solid #333", borderRadius: 12, padding: 12 }}>
+        <div style={{ border: "1px solid var(--gb-border)", borderRadius: 12, padding: 12 }}>
           <b>Overall W/L (units): {overall.toFixed(2)}</b>
         </div>
 
@@ -90,7 +90,7 @@ export default async function PerformancePage() {
             <section
               key={w.id}
               style={{
-                border: "1px solid #333",
+                border: "1px solid var(--gb-border)",
                 borderRadius: 12,
                 padding: 12,
                 marginBottom: 16,
@@ -109,9 +109,9 @@ export default async function PerformancePage() {
                   }}
                 >
                   <span>{eventTitle}</span>
-                  <span style={{ color: "#bbb" }}>Bets: {w.bets?.length ?? 0}</span>
-                  <span style={{ color: "#bbb" }}>Stake: {stakeTotal.toFixed(1)}</span>
-                  <span style={{ color: "#bbb" }}>Week W/L: {weekTotal.toFixed(2)}</span>
+                  <span style={{ color: "var(--gb-muted)" }}>Bets: {w.bets?.length ?? 0}</span>
+                  <span style={{ color: "var(--gb-muted)" }}>Stake: {stakeTotal.toFixed(1)}</span>
+                  <span style={{ color: "var(--gb-muted)" }}>Week W/L: {weekTotal.toFixed(2)}</span>
                   <span style={{ marginLeft: "auto" }}>
                     <WeekControls weekId={w.id} isFinal={Boolean(w.isFinal)} />
                   </span>
@@ -122,24 +122,24 @@ export default async function PerformancePage() {
                 <div
                   style={{
                     overflowX: "auto",
-                    border: "1px solid #333",
+                    border: "1px solid var(--gb-border)",
                     borderRadius: 14,
-                    background: "#000",
+                    background: "var(--gb-bg)",
                   }}
                 >
                   <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 1000 }}>
                     <thead>
                       <tr>
-                        {["Market", "Player", "Opponents", "Book", "Odds", "Stake", "Outcome", "Returns", "Settle"].map(
+                        {["Market", "Tour", "Player", "Opponents", "Book", "Odds", "Stake", "Outcome", "Returns", "Settle"].map(
                           (hh) => (
                             <th
                               key={hh}
                               style={{
                                 textAlign: "left",
                                 padding: 10,
-                                borderBottom: "1px solid #333",
-                                background: "#111",
-                                color: "white",
+                                borderBottom: "1px solid var(--gb-border)",
+                                background: "var(--gb-surface)",
+                                color: "var(--gb-text)",
                                 whiteSpace: "nowrap",
                               }}
                             >
@@ -152,7 +152,7 @@ export default async function PerformancePage() {
 
                     <tbody>
                       {sortedBets.map((b: any, i: number) => {
-                        let rowBg = i % 2 === 0 ? "#000" : "#141414";
+                        let rowBg = i % 2 === 0 ? "var(--gb-bg)" : "var(--gb-row-alt)";
                         if (b.resultWinFlag === 1) rowBg = "#0f2f1a";
                         if (b.resultWinFlag === 0) rowBg = "#3a1212";
 
@@ -161,9 +161,9 @@ export default async function PerformancePage() {
                             <td
                               style={{
                                 padding: 10,
-                                borderBottom: "1px solid #222",
+                                borderBottom: "1px solid var(--gb-border-soft)",
                                 whiteSpace: "nowrap",
-                                color: "white",
+                                color: "var(--gb-text)",
                               }}
                             >
                               {b.betType}
@@ -171,9 +171,19 @@ export default async function PerformancePage() {
                             <td
                               style={{
                                 padding: 10,
-                                borderBottom: "1px solid #222",
+                                borderBottom: "1px solid var(--gb-border-soft)",
                                 whiteSpace: "nowrap",
-                                color: "white",
+                                color: "var(--gb-text)",
+                              }}
+                            >
+                              {(b.tour || w.tour || "").toUpperCase() || "PGA"}
+                            </td>
+                            <td
+                              style={{
+                                padding: 10,
+                                borderBottom: "1px solid var(--gb-border-soft)",
+                                whiteSpace: "nowrap",
+                                color: "var(--gb-text)",
                               }}
                             >
                               {b.playerName}
@@ -181,9 +191,9 @@ export default async function PerformancePage() {
                             <td
                               style={{
                                 padding: 10,
-                                borderBottom: "1px solid #222",
+                                borderBottom: "1px solid var(--gb-border-soft)",
                                 whiteSpace: "nowrap",
-                                color: "white",
+                                color: "var(--gb-text)",
                               }}
                             >
                               {b.opponents ?? ""}
@@ -191,9 +201,9 @@ export default async function PerformancePage() {
                             <td
                               style={{
                                 padding: 10,
-                                borderBottom: "1px solid #222",
+                                borderBottom: "1px solid var(--gb-border-soft)",
                                 whiteSpace: "nowrap",
-                                color: "white",
+                                color: "var(--gb-text)",
                               }}
                             >
                               {b.marketBookBest ?? ""}
@@ -201,9 +211,9 @@ export default async function PerformancePage() {
                             <td
                               style={{
                                 padding: 10,
-                                borderBottom: "1px solid #222",
+                                borderBottom: "1px solid var(--gb-border-soft)",
                                 whiteSpace: "nowrap",
-                                color: "white",
+                                color: "var(--gb-text)",
                               }}
                             >
                               {fmt(b.marketOddsBestDec, 2)}
@@ -211,9 +221,9 @@ export default async function PerformancePage() {
                             <td
                               style={{
                                 padding: 10,
-                                borderBottom: "1px solid #222",
+                                borderBottom: "1px solid var(--gb-border-soft)",
                                 whiteSpace: "nowrap",
-                                color: "white",
+                                color: "var(--gb-text)",
                               }}
                             >
                               {fmt(b.stakeUnits, 2)}
@@ -221,9 +231,9 @@ export default async function PerformancePage() {
                             <td
                               style={{
                                 padding: 10,
-                                borderBottom: "1px solid #222",
+                                borderBottom: "1px solid var(--gb-border-soft)",
                                 whiteSpace: "nowrap",
-                                color: "white",
+                                color: "var(--gb-text)",
                               }}
                             >
                               {formatOutcome(b)}
@@ -231,9 +241,9 @@ export default async function PerformancePage() {
                             <td
                               style={{
                                 padding: 10,
-                                borderBottom: "1px solid #222",
+                                borderBottom: "1px solid var(--gb-border-soft)",
                                 whiteSpace: "nowrap",
-                                color: "white",
+                                color: "var(--gb-text)",
                               }}
                             >
                               {fmt(b.returnUnits, 2)}
@@ -241,9 +251,9 @@ export default async function PerformancePage() {
                             <td
                               style={{
                                 padding: 10,
-                                borderBottom: "1px solid #222",
+                                borderBottom: "1px solid var(--gb-border-soft)",
                                 whiteSpace: "nowrap",
-                                color: "white",
+                                color: "var(--gb-text)",
                               }}
                             >
                               <ManualSettleButtons

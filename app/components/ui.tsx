@@ -11,9 +11,9 @@ function NavLink({ href, children }: { href: string; children: ReactNode }) {
         textDecoration: "none",
         padding: "8px 12px",
         borderRadius: 10,
-        border: "1px solid #333",
-        color: "white",
-        background: "#111",
+        border: "1px solid var(--gb-border)",
+        color: "var(--gb-text)",
+        background: "var(--gb-surface)",
         fontWeight: 700,
       }}
     >
@@ -40,12 +40,12 @@ export function Button({
       style={{
         padding: "10px 14px",
         borderRadius: 12,
-        border: "1px solid #fff",
-        background: disabled ? "#333" : "#111",
-        color: disabled ? "#999" : "white",
+        border: "1px solid var(--gb-accent)",
+        background: disabled ? "var(--gb-border-soft)" : "var(--gb-surface)",
+        color: disabled ? "var(--gb-muted)" : "var(--gb-text)",
         fontWeight: 800,
         cursor: disabled ? "not-allowed" : "pointer",
-        boxShadow: disabled ? "none" : "0 2px 0 rgba(255,255,255,0.25)",
+        boxShadow: disabled ? "none" : "0 2px 0 rgba(123,31,45,0.18)",
         transform: "translateY(0)",
         ...style,
       }}
@@ -67,12 +67,12 @@ export function Card({ children }: { children: ReactNode }) {
   return (
     <div
       style={{
-        border: "1px solid #333",
+        border: "1px solid var(--gb-border)",
         borderRadius: 16,
         padding: 16,
-        background: "#000",
-        boxShadow: "0 2px 12px rgba(0,0,0,0.4)",
-        color: "white",
+        background: "var(--gb-surface)",
+        boxShadow: "0 10px 24px rgba(43,17,23,0.08)",
+        color: "var(--gb-text)",
       }}
     >
       {children}
@@ -85,9 +85,9 @@ export function Table({ data }: { data: { headers: string[]; rows: string[][] } 
     <div
       style={{
         overflowX: "auto",
-        border: "1px solid #333",
+        border: "1px solid var(--gb-border)",
         borderRadius: 14,
-        background: "#000",
+        background: "var(--gb-surface)",
       }}
     >
       <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 900 }}>
@@ -99,9 +99,9 @@ export function Table({ data }: { data: { headers: string[]; rows: string[][] } 
                 style={{
                   textAlign: "left",
                   padding: 10,
-                  borderBottom: "1px solid #333",
-                  background: "#111",
-                  color: "white",
+                  borderBottom: "1px solid var(--gb-border)",
+                  background: "var(--gb-surface)",
+                  color: "var(--gb-text)",
                   whiteSpace: "nowrap",
                   position: "sticky",
                   top: 0,
@@ -115,15 +115,15 @@ export function Table({ data }: { data: { headers: string[]; rows: string[][] } 
 
         <tbody>
           {data.rows.map((row, i) => (
-            <tr key={i} style={{ background: i % 2 === 0 ? "#000" : "#141414" }}>
+            <tr key={i} style={{ background: i % 2 === 0 ? "var(--gb-surface)" : "var(--gb-row-alt)" }}>
               {row.map((cell, j) => (
                 <td
                   key={j}
                   style={{
                     padding: 10,
-                    borderBottom: "1px solid #222",
+                    borderBottom: "1px solid var(--gb-border-soft)",
                     whiteSpace: "nowrap",
-                    color: "white",
+                    color: "var(--gb-text)",
                   }}
                 >
                   {cell}
@@ -140,11 +140,11 @@ export function HeaderNav() {
   return (
     <header
       style={{
-        borderBottom: "1px solid #222",
+        borderBottom: "1px solid var(--gb-border-soft)",
         padding: "14px 24px",
         position: "sticky",
         top: 0,
-        background: "#000",
+        background: "var(--gb-bg)",
         zIndex: 10,
       }}
     >

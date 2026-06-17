@@ -319,20 +319,20 @@ export default function ValueScreensPage() {
   }
 
   return (
-    <div style={{ minHeight: "100vh", background: "#000", fontFamily: "sans-serif", color: "white" }}>
+    <div style={{ minHeight: "100vh", background: "var(--gb-bg)", fontFamily: "Arial, Helvetica, sans-serif", color: "var(--gb-text)" }}>
       <HeaderNav />
 
       <main style={{ padding: 24, maxWidth: 1400, margin: "0 auto" }}>
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <h1 style={{ marginTop: 0, fontWeight: 700, fontSize: 28 }}>Value Screens</h1>
           <div style={{ display: "flex", gap: 6 }}>
-            <Button onClick={() => setTour("pga")} style={{ background: tour === "pga" ? "#f3b44b" : "transparent", color: tour === "pga" ? "#111" : "#f3b44b", border: "1px solid #f3b44b" }}>PGA</Button>
-            <Button onClick={() => setTour("dp")} style={{ background: tour === "dp" ? "#f3b44b" : "transparent", color: tour === "dp" ? "#111" : "#f3b44b", border: "1px solid #f3b44b" }}>DP World Tour</Button>
+            <Button onClick={() => setTour("pga")} style={{ background: tour === "pga" ? "var(--gb-accent)" : "transparent", color: tour === "pga" ? "var(--gb-surface)" : "var(--gb-accent)", border: "1px solid var(--gb-accent)" }}>PGA</Button>
+            <Button onClick={() => setTour("dp")} style={{ background: tour === "dp" ? "var(--gb-accent)" : "transparent", color: tour === "dp" ? "var(--gb-surface)" : "var(--gb-accent)", border: "1px solid var(--gb-accent)" }}>DP World Tour</Button>
           </div>
         </div>
 
         <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-          <select value={market} onChange={(e) => setMarket(e.target.value as Market)} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #333", background: "#111", color: "white" }}>
+          <select value={market} onChange={(e) => setMarket(e.target.value as Market)} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--gb-border)", background: "var(--gb-surface)", color: "var(--gb-text)" }}>
             <option value="win">Win</option>
             <option value="top5">Top 5</option>
             <option value="top10">Top 10</option>
@@ -347,14 +347,14 @@ export default function ValueScreensPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search player, opponent or book"
-            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #333", background: "#111", color: "white", minWidth: 260 }}
+            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--gb-border)", background: "var(--gb-surface)", color: "var(--gb-text)", minWidth: 260 }}
           />
 
           <input
             value={minEv}
             onChange={(e) => setMinEv(e.target.value)}
             placeholder="Min EV / unit (0.000 default)"
-            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #333", background: "#111", color: "white", width: 190 }}
+            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--gb-border)", background: "var(--gb-surface)", color: "var(--gb-text)", width: 190 }}
           />
 
           <label style={{ display: "flex", alignItems: "center", gap: 8, color: "#ddd" }}>
@@ -365,7 +365,7 @@ export default function ValueScreensPage() {
           <select
             value={metricView}
             onChange={(e) => setMetricView(e.target.value as "edge" | "ev")}
-            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid #333", background: "#111", color: "white" }}
+            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--gb-border)", background: "var(--gb-surface)", color: "var(--gb-text)" }}
           >
             <option value="edge">Show Edge</option>
             <option value="ev">Show EV / Unit</option>
@@ -375,29 +375,29 @@ export default function ValueScreensPage() {
             {loading ? "Loading..." : "Refresh"}
           </Button>
 
-          <span style={{ color: "#bbb" }}>
+          <span style={{ color: "var(--gb-muted)" }}>
             {status}
             {locked && <span style={{ marginLeft: 12, color: "#ffb347" }}>{lockMsg ?? "Refresh locked (tournament live)."}</span>}
           </span>
         </div>
 
-        <div style={{ marginBottom: 12, color: "#bbb" }}>
+        <div style={{ marginBottom: 12, color: "var(--gb-muted)" }}>
           Showing {filteredRows.length} of {rows.length} rows
         </div>
 
         {error && <div style={{ marginBottom: 12, color: "#ff7a7a" }}>{error}</div>}
 
         {!rows.length ? (
-          <div style={{ border: "1px solid #333", borderRadius: 16, padding: 16 }}>
+          <div style={{ border: "1px solid var(--gb-border)", borderRadius: 16, padding: 16 }}>
             <p style={{ margin: 0 }}>No data loaded.</p>
           </div>
         ) : (
-          <div style={{ overflowX: "auto", border: "1px solid #333", borderRadius: 14 }}>
+          <div style={{ overflowX: "auto", border: "1px solid var(--gb-border)", borderRadius: 14 }}>
             <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 1100 }}>
               <thead>
                 <tr>
                   {["Player", "Opponent(s)", "Odds", "Book", "Market Win %", "Model Win %", metricView === "edge" ? "Edge" : "EV / Unit", ""].map((hh) => (
-                    <th key={hh} style={{ textAlign: "left", padding: 10, borderBottom: "1px solid #333", background: "#111", color: "white", whiteSpace: "nowrap" }}>
+                    <th key={hh} style={{ textAlign: "left", padding: 10, borderBottom: "1px solid var(--gb-border)", background: "var(--gb-surface)", color: "var(--gb-text)", whiteSpace: "nowrap" }}>
                       {hh}
                     </th>
                   ))}
@@ -418,17 +418,17 @@ export default function ValueScreensPage() {
                   const isValue = (row.evPerUnit ?? -999) > 0;
                   const metricValue = metricView === "edge" ? formatEdge(row.edge) : formatEv(row.evPerUnit);
                   return (
-                    <tr key={rowId + i} style={{ background: i % 2 === 0 ? "#000" : "#141414" }}>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{row.playerName}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{row.opponents}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{formatOdds(row.odds)}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{row.book}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{formatPct(row.marketProb)}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>{formatPct(row.modelProb)}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap", color: isValue ? "#8bffb6" : "#bbb", fontWeight: isValue ? 700 : 400 }}>
+                    <tr key={rowId + i} style={{ background: i % 2 === 0 ? "var(--gb-bg)" : "var(--gb-row-alt)" }}>
+                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{row.playerName}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{row.opponents}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{formatOdds(row.odds)}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{row.book}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{formatPct(row.marketProb)}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{formatPct(row.modelProb)}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap", color: isValue ? "var(--gb-positive)" : "var(--gb-muted)", fontWeight: isValue ? 700 : 400 }}>
                         {metricValue}
                       </td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222", whiteSpace: "nowrap" }}>
+                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>
                         <Button onClick={() => addToBetslip(row)} disabled={addingId === rowId || alreadyAdded}>
                           {addingId === rowId ? "Adding..." : alreadyAdded ? "Added" : "Add to Betslip"}
                         </Button>

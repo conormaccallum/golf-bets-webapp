@@ -301,7 +301,7 @@ export default function HomePage() {
   const meta = data?.meta;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#000", color: "white" }}>
+    <div style={{ minHeight: "100vh", background: "var(--gb-bg)", color: "var(--gb-text)" }}>
       <HeaderNav />
 
       <main style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
@@ -313,9 +313,9 @@ export default function HomePage() {
             <Button
               onClick={() => setTour("pga")}
               style={{
-                background: tour === "pga" ? "#f3b44b" : "transparent",
-                color: tour === "pga" ? "#111" : "#f3b44b",
-                border: "1px solid #f3b44b",
+                background: tour === "pga" ? "var(--gb-accent)" : "transparent",
+                color: tour === "pga" ? "var(--gb-surface)" : "var(--gb-accent)",
+                border: "1px solid var(--gb-accent)",
               }}
             >
               PGA
@@ -323,9 +323,9 @@ export default function HomePage() {
             <Button
               onClick={() => setTour("dp")}
               style={{
-                background: tour === "dp" ? "#f3b44b" : "transparent",
-                color: tour === "dp" ? "#111" : "#f3b44b",
-                border: "1px solid #f3b44b",
+                background: tour === "dp" ? "var(--gb-accent)" : "transparent",
+                color: tour === "dp" ? "var(--gb-surface)" : "var(--gb-accent)",
+                border: "1px solid var(--gb-accent)",
               }}
             >
               DP World Tour
@@ -337,15 +337,15 @@ export default function HomePage() {
           <Button onClick={runModel} disabled={runningModel}>
             {runningModel ? "Starting..." : "Run Model"}
           </Button>
-          <span style={{ marginLeft: "auto", color: "#bbb" }}>
+          <span style={{ marginLeft: "auto", color: "var(--gb-muted)" }}>
             {meta?.eventName ? `${meta.eventName} ${meta.eventYear ?? ""}` : "No event meta"}
           </span>
         </div>
 
-        <div style={{ marginTop: 8, color: "#bbb", fontSize: 13 }}>
+        <div style={{ marginTop: 8, color: "var(--gb-muted)", fontSize: 13 }}>
           Last Refreshed: {formatDateTime(lastUpdatedAt)}
         </div>
-        <div style={{ marginTop: 4, color: "#bbb", fontSize: 13 }}>
+        <div style={{ marginTop: 4, color: "var(--gb-muted)", fontSize: 13 }}>
           Model last ran at {formatDateTime(data?.lastUpdated)}
           {runStatus ? ` • ${runStatus}` : ""}
         </div>
@@ -354,7 +354,7 @@ export default function HomePage() {
         </div>
         {runStatus && (
           <div style={{ marginTop: 8 }}>
-            <div style={{ color: "#bbb", fontSize: 12, marginBottom: 6 }}>
+            <div style={{ color: "var(--gb-muted)", fontSize: 12, marginBottom: 6 }}>
               Progress: {runProgress}%
             </div>
             <div
@@ -387,7 +387,7 @@ export default function HomePage() {
 
         <Card>
           {!rows.length ? (
-            <p style={{ margin: 0, color: "#bbb" }}>No summary rows available.</p>
+            <p style={{ margin: 0, color: "var(--gb-muted)" }}>No summary rows available.</p>
           ) : (
             <div style={{ overflowX: "auto" }}>
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
@@ -400,8 +400,8 @@ export default function HomePage() {
                           style={{
                             textAlign: "left",
                             padding: "8px 10px",
-                            borderBottom: "1px solid #222",
-                            color: "#bbb",
+                            borderBottom: "1px solid var(--gb-border-soft)",
+                            color: "var(--gb-muted)",
                             fontWeight: 600,
                           }}
                         >
@@ -434,29 +434,29 @@ export default function HomePage() {
                           background: isValue ? "rgba(0, 200, 120, 0.12)" : "transparent",
                         }}
                       >
-                        <td style={{ padding: "8px 10px", borderBottom: "1px solid #111" }}>
+                        <td style={{ padding: "8px 10px", borderBottom: "1px solid var(--gb-border-soft)" }}>
                           {r.market ?? "-"}
                         </td>
-                        <td style={{ padding: "8px 10px", borderBottom: "1px solid #111" }}>
+                        <td style={{ padding: "8px 10px", borderBottom: "1px solid var(--gb-border-soft)" }}>
                           {r.player_name ?? "-"}
                         </td>
-                        <td style={{ padding: "8px 10px", borderBottom: "1px solid #111" }}>
+                        <td style={{ padding: "8px 10px", borderBottom: "1px solid var(--gb-border-soft)" }}>
                           {r.opponents ?? "-"}
                         </td>
-                        <td style={{ padding: "8px 10px", borderBottom: "1px solid #111" }}>
+                        <td style={{ padding: "8px 10px", borderBottom: "1px solid var(--gb-border-soft)" }}>
                           {r.market_book_best ?? "-"}
                         </td>
-                        <td style={{ padding: "8px 10px", borderBottom: "1px solid #111" }}>
+                        <td style={{ padding: "8px 10px", borderBottom: "1px solid var(--gb-border-soft)" }}>
                           {formatOdds(r.market_odds_best_dec)}
                         </td>
-                        <td style={{ padding: "8px 10px", borderBottom: "1px solid #111" }}>
+                        <td style={{ padding: "8px 10px", borderBottom: "1px solid var(--gb-border-soft)" }}>
                           {formatPct(r.p_model)}
                         </td>
                         <td
                           style={{
                             padding: "8px 10px",
-                            borderBottom: "1px solid #111",
-                            color: isValue ? "#8bffb6" : "#bbb",
+                            borderBottom: "1px solid var(--gb-border-soft)",
+                            color: isValue ? "var(--gb-positive)" : "var(--gb-muted)",
                             fontWeight: isValue ? 700 : 400,
                           }}
                         >
@@ -465,14 +465,14 @@ export default function HomePage() {
                         <td
                           style={{
                             padding: "8px 10px",
-                            borderBottom: "1px solid #111",
-                            color: isValue ? "#8bffb6" : "#bbb",
+                            borderBottom: "1px solid var(--gb-border-soft)",
+                            color: isValue ? "var(--gb-positive)" : "var(--gb-muted)",
                             fontWeight: isValue ? 700 : 400,
                           }}
                         >
                           {formatEdge(r.edge_prob)}
                         </td>
-                        <td style={{ padding: "8px 10px", borderBottom: "1px solid #111" }}>
+                        <td style={{ padding: "8px 10px", borderBottom: "1px solid var(--gb-border-soft)" }}>
                           <Button
                             onClick={() => addToBetslip(r)}
                             disabled={addingId === rowId || alreadyAdded}

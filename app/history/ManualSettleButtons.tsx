@@ -169,8 +169,8 @@ export default function ManualSettleButtons(props: {
               fontSize: 12,
               padding: "2px 6px",
               background: "none",
-              border: "1px solid #333",
-              color: "white",
+              border: "1px solid var(--gb-border)",
+              color: "var(--gb-text)",
               borderRadius: 8,
               cursor: loading ? "not-allowed" : "pointer",
             }}

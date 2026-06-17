@@ -222,7 +222,7 @@ export default function BetslipPage() {
   }, [pending]);
 
   return (
-    <div style={{ minHeight: "100vh", background: "#000", color: "white" }}>
+    <div style={{ minHeight: "100vh", background: "var(--gb-bg)", color: "var(--gb-text)" }}>
       <HeaderNav />
 
       <main style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
@@ -234,9 +234,9 @@ export default function BetslipPage() {
             <Button
               onClick={() => setTour("pga")}
               style={{
-                background: tour === "pga" ? "#f3b44b" : "transparent",
-                color: tour === "pga" ? "#111" : "#f3b44b",
-                border: "1px solid #f3b44b",
+                background: tour === "pga" ? "var(--gb-accent)" : "transparent",
+                color: tour === "pga" ? "var(--gb-surface)" : "var(--gb-accent)",
+                border: "1px solid var(--gb-accent)",
               }}
             >
               PGA
@@ -244,9 +244,9 @@ export default function BetslipPage() {
             <Button
               onClick={() => setTour("dp")}
               style={{
-                background: tour === "dp" ? "#f3b44b" : "transparent",
-                color: tour === "dp" ? "#111" : "#f3b44b",
-                border: "1px solid #f3b44b",
+                background: tour === "dp" ? "var(--gb-accent)" : "transparent",
+                color: tour === "dp" ? "var(--gb-surface)" : "var(--gb-accent)",
+                border: "1px solid var(--gb-accent)",
               }}
             >
               DP World Tour
@@ -275,7 +275,7 @@ export default function BetslipPage() {
         <div style={{ height: 8 }} />
 
         {eventMeta ? (
-          <div style={{ color: "#bbb" }}>
+          <div style={{ color: "var(--gb-muted)" }}>
             {eventMeta.eventName} {eventMeta.eventYear}
           </div>
         ) : null}
@@ -298,14 +298,14 @@ export default function BetslipPage() {
         {loading ? <div>Loading...</div> : null}
 
         {!loading && pending.length === 0 && placed.length === 0 ? (
-          <div style={{ color: "#bbb" }}>No bets added yet.</div>
+          <div style={{ color: "var(--gb-muted)" }}>No bets added yet.</div>
         ) : null}
 
         {pending.length > 0 ? (
           <section style={{ marginTop: 12 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <h2 style={{ margin: 0 }}>Pending</h2>
-              <span style={{ color: "#bbb" }}>Stake total: {pendingStakeTotal.toFixed(1)}</span>
+              <span style={{ color: "var(--gb-muted)" }}>Stake total: {pendingStakeTotal.toFixed(1)}</span>
             </div>
 
             <div style={{ height: 8 }} />
@@ -313,9 +313,9 @@ export default function BetslipPage() {
             <div
               style={{
                 overflowX: "auto",
-                border: "1px solid #333",
+                border: "1px solid var(--gb-border)",
                 borderRadius: 14,
-                background: "#000",
+                background: "var(--gb-bg)",
               }}
             >
               <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 1200 }}>
@@ -339,9 +339,9 @@ export default function BetslipPage() {
                         style={{
                           textAlign: "left",
                           padding: 10,
-                          borderBottom: "1px solid #333",
-                          background: "#111",
-                          color: "white",
+                          borderBottom: "1px solid var(--gb-border)",
+                          background: "var(--gb-surface)",
+                          color: "var(--gb-text)",
                           whiteSpace: "nowrap",
                         }}
                       >
@@ -353,27 +353,27 @@ export default function BetslipPage() {
                 <tbody>
                   {pending.map((it, idx) => {
                     const evLow = it.evPerUnit !== null && it.evPerUnit <= 0;
-                    const rowBg = evLow ? "#2b1414" : idx % 2 === 0 ? "#000" : "#141414";
+                    const rowBg = evLow ? "#2b1414" : idx % 2 === 0 ? "var(--gb-bg)" : "var(--gb-row-alt)";
                     return (
                       <tr key={it.id} style={{ background: rowBg }}>
-                        <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                        <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>
                           {it.market}
                         </td>
-                        <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                        <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>
                           {(it.tour || "").toUpperCase() || "PGA"}
                         </td>
-                        <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                        <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>
                           {it.playerName}
                         </td>
-                        <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                        <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>
                           {it.opponents ?? ""}
                         </td>
-                        <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                        <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>
                           {it.marketBookBest
                             ? `${it.marketBookBest} ${fmt(it.marketOddsBestDec, 2)}`
                             : fmt(it.marketOddsBestDec, 2)}
                         </td>
-                        <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                        <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>
                           <input
                             value={edits[it.id]?.book ?? ""}
                             onChange={(e) =>
@@ -384,16 +384,16 @@ export default function BetslipPage() {
                             }
                             onBlur={() => saveBook(it.id)}
                             style={{
-                              background: "#111",
-                              color: "white",
-                              border: "1px solid #333",
+                              background: "var(--gb-surface)",
+                              color: "var(--gb-text)",
+                              border: "1px solid var(--gb-border)",
                               borderRadius: 8,
                               padding: "6px 8px",
                               width: 120,
                             }}
                           />
                         </td>
-                        <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                        <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>
                           <input
                             type="number"
                             step="0.01"
@@ -406,19 +406,19 @@ export default function BetslipPage() {
                             }
                             onBlur={() => saveOdds(it.id)}
                             style={{
-                              background: "#111",
-                              color: "white",
-                              border: "1px solid #333",
+                              background: "var(--gb-surface)",
+                              color: "var(--gb-text)",
+                              border: "1px solid var(--gb-border)",
                               borderRadius: 8,
                               padding: "6px 8px",
                               width: 90,
                             }}
                           />
                         </td>
-                        <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                        <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>
                           <div style={{ fontWeight: 700 }}>{evLabel(it.evPerUnit)}</div>
                         </td>
-                        <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                        <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>
                           <div style={{ fontWeight: 700 }}>{edgeLabel(it.edgeProb)}</div>
                           {evLow ? (
                             <div style={{ color: "#ffb3b3", fontSize: 12 }}>
@@ -426,7 +426,7 @@ export default function BetslipPage() {
                             </div>
                           ) : null}
                         </td>
-                        <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                        <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>
                           <input
                             type="number"
                             step="0.1"
@@ -441,16 +441,16 @@ export default function BetslipPage() {
                             onBlur={() => saveStake(it.id)}
                             placeholder={fmt(it.stakeUnits, 1)}
                             style={{
-                              background: "#111",
-                              color: "white",
-                              border: "1px solid #333",
+                              background: "var(--gb-surface)",
+                              color: "var(--gb-text)",
+                              border: "1px solid var(--gb-border)",
                               borderRadius: 8,
                               padding: "6px 8px",
                               width: 90,
                             }}
                           />
                         </td>
-                        <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                        <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>
                           <div style={{ display: "flex", gap: 8 }}>
                             <button
                               onClick={() => setStatus(it.id, "PLACED")}
@@ -498,9 +498,9 @@ export default function BetslipPage() {
             <div
               style={{
                 overflowX: "auto",
-                border: "1px solid #333",
+                border: "1px solid var(--gb-border)",
                 borderRadius: 14,
-                background: "#000",
+                background: "var(--gb-bg)",
               }}
             >
               <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 1000 }}>
@@ -524,9 +524,9 @@ export default function BetslipPage() {
                         style={{
                           textAlign: "left",
                           padding: 10,
-                          borderBottom: "1px solid #333",
-                          background: "#111",
-                          color: "white",
+                          borderBottom: "1px solid var(--gb-border)",
+                          background: "var(--gb-surface)",
+                          color: "var(--gb-text)",
                           whiteSpace: "nowrap",
                         }}
                       >
@@ -537,34 +537,34 @@ export default function BetslipPage() {
                 </thead>
                 <tbody>
                   {placed.map((it, idx) => (
-                    <tr key={it.id} style={{ background: idx % 2 === 0 ? "#000" : "#141414" }}>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{it.market}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                    <tr key={it.id} style={{ background: idx % 2 === 0 ? "var(--gb-bg)" : "var(--gb-row-alt)" }}>
+                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>{it.market}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>
                         {(it.tour || "").toUpperCase() || "PGA"}
                       </td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{it.playerName}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>{it.playerName}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>
                         {it.opponents ?? ""}
                       </td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>
                         {it.marketBookBest ?? ""}
                       </td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>
                         {fmt(it.oddsEnteredDec ?? it.marketOddsBestDec, 2)}
                       </td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{evLabel(it.evPerUnit)}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{edgeLabel(it.edgeProb)}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>{fmt(it.stakeUnits, 1)}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222", color: "#bbb" }}>
+                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>{evLabel(it.evPerUnit)}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>{edgeLabel(it.edgeProb)}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>{fmt(it.stakeUnits, 1)}</td>
+                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", color: "var(--gb-muted)" }}>
                         {it.updatedAt ?? ""}
                       </td>
-                      <td style={{ padding: 10, borderBottom: "1px solid #222" }}>
+                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>
                         <button
                           onClick={() => setStatus(it.id, "PENDING")}
                           style={{
-                            border: "1px solid #333",
-                            background: "#111",
-                            color: "white",
+                            border: "1px solid var(--gb-border)",
+                            background: "var(--gb-surface)",
+                            color: "var(--gb-text)",
                             padding: "6px 8px",
                             borderRadius: 8,
                             cursor: "pointer",
