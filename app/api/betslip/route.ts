@@ -230,8 +230,6 @@ async function recalcPending(tour: string, eventId: string) {
 
 async function buildOutputMap(tour: string, eventId: string) {
   const markets = [
-    { key: "win", file: "latest_value_win.csv" },
-    { key: "top5", file: "latest_value_top5.csv" },
     { key: "top10", file: "latest_value_top10.csv" },
     { key: "top20", file: "latest_value_top20.csv" },
     { key: "makeCut", file: "latest_value_make_cut.csv" },

@@ -3,15 +3,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { HeaderNav, Button } from "../components/ui";
 
-type Market = "win" | "top5" | "top10" | "top20" | "make_cut" | "miss_cut" | "matchup_2b" | "matchup_3b";
+type Market = "top10" | "top20" | "make_cut" | "miss_cut" | "matchup_2b" | "matchup_3b";
 type TableData = { headers: string[]; rows: string[][] };
 type RunResponse = {
   ok?: boolean;
   error?: string;
   meta?: { eventId?: string; refreshLockDay?: string };
   tables?: {
-    win?: TableData | null;
-    top5?: TableData | null;
     top10?: TableData | null;
     top20?: TableData | null;
     makeCut?: TableData | null;
@@ -75,8 +73,6 @@ function formatEv(v: number | null): string {
 }
 
 function marketLabel(market: Market): string {
-  if (market === "win") return "Win";
-  if (market === "top5") return "Top 5";
   if (market === "top10") return "Top 10";
   if (market === "top20") return "Top 20";
   if (market === "make_cut") return "Make Cut";
@@ -115,11 +111,7 @@ function buildDisplayRows(raw: TableData | null, market: Market): DisplayRow[] {
   const idxEdge = pickIndex(h, ["edge_prob", "edge"]);
 
   const idxModelProb =
-    market === "win"
-      ? pickIndex(h, ["win_prob_anchored", "win_prob_model", "p_model"])
-      : market === "top5"
-      ? pickIndex(h, ["top5_prob_anchored", "top5_prob_model", "p_model"])
-      : market === "top10"
+    market === "top10"
       ? pickIndex(h, ["top10_prob_anchored", "top10_prob_model", "p_model"])
       : market === "top20"
       ? pickIndex(h, ["top20_prob_anchored_dh", "top20_prob_anchored", "top20_prob_dh", "top20_prob_model", "p_model"])
@@ -186,11 +178,7 @@ export default function ValueScreensPage() {
       if (!json?.ok) throw new Error(json?.error ?? "API error");
       setData(json);
       const isMatchup = market === "matchup_2b" || market === "matchup_3b";
-      const table = market === "win"
-        ? json.tables?.win
-        : market === "top5"
-        ? json.tables?.top5
-        : market === "top10"
+      const table = market === "top10"
         ? json.tables?.top10
         : market === "top20"
         ? json.tables?.top20
@@ -246,8 +234,6 @@ export default function ValueScreensPage() {
 
   const rawTable = useMemo(() => {
     if (!data?.tables) return null;
-    if (market === "win") return data.tables.win ?? null;
-    if (market === "top5") return data.tables.top5 ?? null;
     if (market === "top10") return data.tables.top10 ?? null;
     if (market === "top20") return data.tables.top20 ?? null;
     if (market === "make_cut") return data.tables.makeCut ?? null;
@@ -333,8 +319,6 @@ export default function ValueScreensPage() {
 
         <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
           <select value={market} onChange={(e) => setMarket(e.target.value as Market)} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--gb-border)", background: "var(--gb-surface)", color: "var(--gb-text)" }}>
-            <option value="win">Win</option>
-            <option value="top5">Top 5</option>
             <option value="top10">Top 10</option>
             <option value="top20">Top 20</option>
             <option value="make_cut">Make Cut</option>
