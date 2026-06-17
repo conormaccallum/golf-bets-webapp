@@ -122,9 +122,9 @@ export default async function PerformancePage() {
                 <div
                   style={{
                     overflowX: "auto",
-                    border: "1px solid var(--gb-border)",
+                    border: "1px solid rgba(255,250,243,0.18)",
                     borderRadius: 14,
-                    background: "var(--gb-bg)",
+                    background: "#3a1019",
                   }}
                 >
                   <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 1000 }}>
@@ -137,9 +137,9 @@ export default async function PerformancePage() {
                               style={{
                                 textAlign: "left",
                                 padding: 10,
-                                borderBottom: "1px solid var(--gb-border)",
-                                background: "var(--gb-surface)",
-                                color: "var(--gb-text)",
+                                borderBottom: "1px solid rgba(255,250,243,0.22)",
+                                background: "#551827",
+                                color: "#fffaf3",
                                 whiteSpace: "nowrap",
                               }}
                             >
@@ -152,110 +152,46 @@ export default async function PerformancePage() {
 
                     <tbody>
                       {sortedBets.map((b: any, i: number) => {
-                        let rowBg = i % 2 === 0 ? "var(--gb-bg)" : "var(--gb-row-alt)";
-                        if (b.resultWinFlag === 1) rowBg = "#0f2f1a";
-                        if (b.resultWinFlag === 0) rowBg = "#3a1212";
+                        let rowBg = i % 2 === 0 ? "#3a1019" : "#46131f";
+                        if (b.resultWinFlag === 1) rowBg = "#198754";
+                        if (b.resultWinFlag === 0) rowBg = "#c63d45";
+                        const cellStyle = {
+                          padding: 10,
+                          borderBottom: "1px solid rgba(255,250,243,0.16)",
+                          whiteSpace: "nowrap" as const,
+                          color: "#fffaf3",
+                        };
 
                         return (
                           <tr key={b.id} style={{ background: rowBg }}>
-                            <td
-                              style={{
-                                padding: 10,
-                                borderBottom: "1px solid var(--gb-border-soft)",
-                                whiteSpace: "nowrap",
-                                color: "var(--gb-text)",
-                              }}
-                            >
+                            <td style={cellStyle}>
                               {b.betType}
                             </td>
-                            <td
-                              style={{
-                                padding: 10,
-                                borderBottom: "1px solid var(--gb-border-soft)",
-                                whiteSpace: "nowrap",
-                                color: "var(--gb-text)",
-                              }}
-                            >
+                            <td style={cellStyle}>
                               {(b.tour || w.tour || "").toUpperCase() || "PGA"}
                             </td>
-                            <td
-                              style={{
-                                padding: 10,
-                                borderBottom: "1px solid var(--gb-border-soft)",
-                                whiteSpace: "nowrap",
-                                color: "var(--gb-text)",
-                              }}
-                            >
+                            <td style={cellStyle}>
                               {b.playerName}
                             </td>
-                            <td
-                              style={{
-                                padding: 10,
-                                borderBottom: "1px solid var(--gb-border-soft)",
-                                whiteSpace: "nowrap",
-                                color: "var(--gb-text)",
-                              }}
-                            >
+                            <td style={cellStyle}>
                               {b.opponents ?? ""}
                             </td>
-                            <td
-                              style={{
-                                padding: 10,
-                                borderBottom: "1px solid var(--gb-border-soft)",
-                                whiteSpace: "nowrap",
-                                color: "var(--gb-text)",
-                              }}
-                            >
+                            <td style={cellStyle}>
                               {b.marketBookBest ?? ""}
                             </td>
-                            <td
-                              style={{
-                                padding: 10,
-                                borderBottom: "1px solid var(--gb-border-soft)",
-                                whiteSpace: "nowrap",
-                                color: "var(--gb-text)",
-                              }}
-                            >
+                            <td style={cellStyle}>
                               {fmt(b.marketOddsBestDec, 2)}
                             </td>
-                            <td
-                              style={{
-                                padding: 10,
-                                borderBottom: "1px solid var(--gb-border-soft)",
-                                whiteSpace: "nowrap",
-                                color: "var(--gb-text)",
-                              }}
-                            >
+                            <td style={cellStyle}>
                               {fmt(b.stakeUnits, 2)}
                             </td>
-                            <td
-                              style={{
-                                padding: 10,
-                                borderBottom: "1px solid var(--gb-border-soft)",
-                                whiteSpace: "nowrap",
-                                color: "var(--gb-text)",
-                              }}
-                            >
+                            <td style={cellStyle}>
                               {formatOutcome(b)}
                             </td>
-                            <td
-                              style={{
-                                padding: 10,
-                                borderBottom: "1px solid var(--gb-border-soft)",
-                                whiteSpace: "nowrap",
-                                color: "var(--gb-text)",
-                              }}
-                            >
+                            <td style={cellStyle}>
                               {fmt(b.returnUnits, 2)}
                             </td>
-                            <td
-                              style={{
-                                padding: 10,
-                                borderBottom: "1px solid var(--gb-border-soft)",
-                                whiteSpace: "nowrap",
-                                color: "var(--gb-text)",
-                              }}
-                            >
+                            <td style={cellStyle}>
                               <ManualSettleButtons
                                 betId={b.id}
                                 betType={b.betType}
