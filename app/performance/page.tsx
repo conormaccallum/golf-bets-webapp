@@ -122,9 +122,9 @@ export default async function PerformancePage() {
                 <div
                   style={{
                     overflowX: "auto",
-                    border: "1px solid rgba(255,250,243,0.18)",
+                    border: "1px solid var(--gb-border)",
                     borderRadius: 14,
-                    background: "#3a1019",
+                    background: "var(--gb-surface)",
                   }}
                 >
                   <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 1000 }}>
@@ -137,9 +137,9 @@ export default async function PerformancePage() {
                               style={{
                                 textAlign: "left",
                                 padding: 10,
-                                borderBottom: "1px solid rgba(255,250,243,0.22)",
-                                background: "#551827",
-                                color: "#fffaf3",
+                                borderBottom: "1px solid var(--gb-border)",
+                                background: "#ead3d8",
+                                color: "var(--gb-text)",
                                 whiteSpace: "nowrap",
                               }}
                             >
@@ -152,14 +152,14 @@ export default async function PerformancePage() {
 
                     <tbody>
                       {sortedBets.map((b: any, i: number) => {
-                        let rowBg = i % 2 === 0 ? "#3a1019" : "#46131f";
-                        if (b.resultWinFlag === 1) rowBg = "#198754";
-                        if (b.resultWinFlag === 0) rowBg = "#c63d45";
+                        let rowBg = i % 2 === 0 ? "var(--gb-surface)" : "#f1dfe4";
+                        if (b.resultWinFlag === 1) rowBg = "#2fa66a";
+                        if (b.resultWinFlag === 0) rowBg = "#e15b64";
                         const cellStyle = {
                           padding: 10,
-                          borderBottom: "1px solid rgba(255,250,243,0.16)",
+                          borderBottom: "1px solid var(--gb-border-soft)",
                           whiteSpace: "nowrap" as const,
-                          color: "#fffaf3",
+                          color: b.resultWinFlag === null ? "var(--gb-text)" : "#fffaf3",
                         };
 
                         return (

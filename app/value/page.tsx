@@ -163,6 +163,25 @@ export default function ValueScreensPage() {
   const [minEv, setMinEv] = useState("");
   const [metricView, setMetricView] = useState<"edge" | "ev">("ev");
   const [addingId, setAddingId] = useState<string | null>(null);
+  const [runningModel, setRunningModel] = useState(false);
+
+
+  async function runModel() {
+    setRunningModel(true);
+    setError(null);
+    setStatus("Dispatching model run...");
+    try {
+      const res = await fetch("/api/run-model", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok || !json?.ok) throw new Error(json?.error || "Failed to run model");
+      setStatus("Model run started in GitHub Actions. Refresh after the run completes.");
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to run model");
+      setStatus(e?.message ?? "Failed to run model");
+    } finally {
+      setRunningModel(false);
+    }
+  }
 
   async function load(ignoreLock = false) {
     if (locked && !ignoreLock) {
@@ -357,6 +376,10 @@ export default function ValueScreensPage() {
 
           <Button onClick={() => load(false)} disabled={loading || locked}>
             {loading ? "Loading..." : "Refresh"}
+          </Button>
+
+          <Button onClick={runModel} disabled={runningModel}>
+            {runningModel ? "Starting..." : "Run Model"}
           </Button>
 
           <span style={{ color: "var(--gb-muted)" }}>

@@ -160,7 +160,6 @@ export function HeaderNav() {
         <NavLink href="/">Home</NavLink>
         <NavLink href="/betslip">Betslip</NavLink>
         <NavLink href="/value">Value Screens</NavLink>
-        <NavLink href="/event-model">Event Model</NavLink>
         <NavLink href="/performance">Performance</NavLink>
       </nav>
     </header>

@@ -1,133 +1,88 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { HeaderNav, Button, Card } from "./components/ui";
 
-type SummaryRow = {
-  market?: string;
-  player_name?: string;
-  dg_id?: string | number;
-  market_odds_best_dec?: string | number;
-  market_book_best?: string;
-  edge_prob?: number;
-  ev_per_unit?: number;
-  p_model?: number;
-  opponents?: string;
-};
-
-type ValueSummaryResponse = {
+type HomeSummary = {
+  ok?: boolean;
+  error?: string;
   tour?: string;
-  meta?: {
-    eventId?: string;
-    eventName?: string;
-    eventYear?: number;
-    refreshLockDay?: string;
+  meta?: { eventId?: string; eventName?: string; eventYear?: number } | null;
+  ytd?: {
+    year: number;
+    pnlUnits: number;
+    stakedUnits: number;
+    roi: number | null;
+    betsPlaced: number;
+    betsSettled: number;
+    betsWon: number;
+    betsLost: number;
+    bestBet: null | {
+      market: string;
+      playerName: string;
+      odds: number | null;
+      stake: number | null;
+      returnUnits: number | null;
+      eventName: string;
+      eventYear: number;
+    };
   };
-  lastUpdated?: string | null;
-  summary?: {
-    top?: SummaryRow[];
-    top20?: SummaryRow[];
-  };
-  betslipKeys?: string[];
+  liveError?: string | null;
+  liveLastUpdate?: string | null;
+  weeklyPlaced?: Array<{
+    id: string;
+    market: string;
+    playerName: string;
+    opponents?: string | null;
+    book?: string | null;
+    odds?: number | null;
+    stake?: number | null;
+    pModel?: number | null;
+    evPerUnit?: number | null;
+    liveStatus: string;
+    liveDetail?: string | null;
+    liveProb?: number | null;
+    currentPos?: string | null;
+    currentScore?: number | null;
+    thru?: number | string | null;
+    round?: number | string | null;
+  }>;
 };
 
-function toNumber(v: unknown): number | null {
-  if (v === null || v === undefined) return null;
-  if (typeof v === "number") return Number.isFinite(v) ? v : null;
-  if (typeof v === "string" && v.trim() !== "") {
-    const n = Number(v);
-    return Number.isFinite(n) ? n : null;
-  }
-  return null;
+function fmt(n: unknown, dp = 2) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return "-";
+  return v.toFixed(dp);
 }
 
-function formatPct(v: unknown): string {
-  const n = toNumber(v);
-  if (n === null) return "-";
-  return `${(n * 100).toFixed(1)}%`;
+function fmtSigned(n: unknown, dp = 2) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return "-";
+  return `${v > 0 ? "+" : ""}${v.toFixed(dp)}`;
 }
 
-function formatOdds(v: unknown): string {
-  const n = toNumber(v);
-  if (n === null) return "-";
-  return n.toFixed(2);
-}
-
-function formatEdge(v: unknown): string {
-  const n = toNumber(v);
-  if (n === null) return "-";
-  return `${(n * 100).toFixed(1)}%`;
-}
-
-function formatEv(v: unknown): string {
-  const n = toNumber(v);
-  if (n === null) return "-";
-  const sign = n > 0 ? "+" : "";
-  return `${sign}${n.toFixed(3)}`;
-}
-
-function formatDateTime(value: string | null | undefined): string {
-  if (!value) return "Unknown";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return "Unknown";
-  const date = d.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "2-digit",
-  });
-  const time = d.toLocaleTimeString("en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  });
-  return `${date} ${time}`;
-}
-
-function makeUniqueKey(input: {
-  tour: string;
-  eventId: string;
-  market: string;
-  dgId: string | null;
-  playerName: string;
-  opponents?: string | null;
-}) {
-  return [
-    input.tour,
-    input.eventId,
-    input.market,
-    input.dgId || "",
-    input.playerName,
-    input.opponents || "",
-  ].join("|");
+function fmtPct(n: unknown) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return "-";
+  return `${(v * 100).toFixed(1)}%`;
 }
 
 export default function HomePage() {
-  const [loading, setLoading] = useState(false);
-  const [runningModel, setRunningModel] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<ValueSummaryResponse | null>(null);
   const [tour, setTour] = useState<"pga" | "dp">("pga");
-  const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
-  const [runStatus, setRunStatus] = useState<string | null>(null);
-  const [runStep, setRunStep] = useState<1 | 2 | 3 | 4 | null>(null);
-  const [runProgress, setRunProgress] = useState<number>(0);
-  const [addingId, setAddingId] = useState<string | null>(null);
-  const pollRef = useRef<NodeJS.Timeout | null>(null);
-  const statusRef = useRef<NodeJS.Timeout | null>(null);
+  const [data, setData] = useState<HomeSummary | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [running, setRunning] = useState(false);
+  const [status, setStatus] = useState("");
+  const [error, setError] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`/api/value-summary?tour=${tour}&t=${Date.now()}`, { cache: "no-store" });
-      const text = await res.text();
-      if (text.trim().startsWith("<")) {
-        throw new Error(`Non-JSON response from /api/value-summary (HTTP ${res.status}).`);
-      }
-      const json = JSON.parse(text) as ValueSummaryResponse;
-      if (!res.ok) throw new Error((json as any)?.error || "Failed to load summary");
+      const res = await fetch(`/api/home-summary?tour=${tour}&t=${Date.now()}`, { cache: "no-store" });
+      const json = (await res.json()) as HomeSummary;
+      if (!res.ok || !json.ok) throw new Error(json.error || "Failed to load home summary");
       setData(json);
-      setLastUpdatedAt(new Date().toISOString());
     } catch (e: any) {
       setError(e?.message ?? "Unknown error");
     } finally {
@@ -135,358 +90,121 @@ export default function HomePage() {
     }
   }
 
+  async function runModel() {
+    setRunning(true);
+    setError(null);
+    setStatus("Dispatching model run...");
+    try {
+      const res = await fetch("/api/run-model", { method: "POST" });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json?.error || "Failed to run model");
+      setStatus("Model run started in GitHub Actions. Refresh this page after the run completes.");
+    } catch (e: any) {
+      setError(e?.message ?? "Unknown error");
+      setStatus("");
+    } finally {
+      setRunning(false);
+    }
+  }
+
   useEffect(() => {
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tour]);
 
-  async function runModel() {
-    setRunningModel(true);
-    setError(null);
-    setRunStep(1);
-    setRunProgress(10);
-    setRunStatus("Step 1/4: Dispatching model run...");
-    if (pollRef.current) {
-      clearInterval(pollRef.current);
-      pollRef.current = null;
-    }
-    if (statusRef.current) {
-      clearInterval(statusRef.current);
-      statusRef.current = null;
-    }
-    try {
-      const prevUpdated = data?.lastUpdated ?? null;
-      const res = await fetch("/api/run-model", { method: "POST" });
-      const text = await res.text();
-      if (text.trim().startsWith("<")) {
-        throw new Error(`Non-JSON response from /api/run-model (HTTP ${res.status}).`);
-      }
-      const json = JSON.parse(text);
-      if (!res.ok) throw new Error(json?.error || "Failed to run model");
-      setRunStep(2);
-      setRunProgress(30);
-      setRunStatus("Step 2/4: Model run started (GitHub Actions)...");
-
-      const startedAt = Date.now();
-      statusRef.current = setInterval(async () => {
-        try {
-          const r = await fetch(`/api/run-model?t=${Date.now()}`, { cache: "no-store" });
-          const t = await r.text();
-          if (t.trim().startsWith("<")) return;
-          const j = JSON.parse(t);
-          if (!r.ok) return;
-          const run = j?.run;
-          if (run?.status === "in_progress" || run?.status === "queued") {
-            setRunStep(2);
-            setRunProgress(40);
-            setRunStatus(`Step 2/4: GitHub Actions ${run.status.replace("_", " ")}...`);
-            return;
-          }
-          if (run?.status === "completed") {
-            if (statusRef.current) {
-              clearInterval(statusRef.current);
-              statusRef.current = null;
-            }
-            if (run?.conclusion !== "success") {
-              setRunProgress(0);
-              setRunStatus(`Run finished with status: ${run.conclusion || "unknown"}`);
-              return;
-            }
-            setRunStep(3);
-            setRunProgress(70);
-            setRunStatus("Step 3/4: Run complete. Waiting for outputs to update...");
-
-            pollRef.current = setInterval(async () => {
-              try {
-                const r2 = await fetch(`/api/value-summary?tour=${tour}&t=${Date.now()}`, { cache: "no-store" });
-                const t2 = await r2.text();
-                if (t2.trim().startsWith("<")) return;
-                const j2 = JSON.parse(t2) as ValueSummaryResponse;
-                if (!r2.ok) return;
-                const updated = j2.lastUpdated ?? null;
-                if (updated && updated !== prevUpdated) {
-                  setData(j2);
-                  setLastUpdatedAt(new Date().toISOString());
-                  setRunStep(4);
-                  setRunProgress(100);
-                  setRunStatus(`Step 4/4: Outputs updated at ${updated}.`);
-                  if (pollRef.current) {
-                    clearInterval(pollRef.current);
-                    pollRef.current = null;
-                  }
-                  return;
-                }
-                if (Date.now() - startedAt > 12 * 60 * 1000) {
-                  setRunProgress(95);
-                  setRunStatus("Still running after 12 minutes. Try refresh later.");
-                  if (pollRef.current) {
-                    clearInterval(pollRef.current);
-                    pollRef.current = null;
-                  }
-                }
-              } catch {
-                // ignore polling errors
-              }
-            }, 15000);
-          }
-        } catch {
-          // ignore
-        }
-      }, 10000);
-    } catch (e: any) {
-      setError(e?.message ?? "Unknown error");
-      setRunProgress(0);
-      setRunStatus("Error");
-    } finally {
-      setRunningModel(false);
-    }
-  }
-
-  const rows = useMemo(() => {
-    return data?.summary?.top ?? data?.summary?.top20 ?? [];
-  }, [data]);
-
-  const betslipKeySet = useMemo(() => {
-    return new Set(data?.betslipKeys ?? []);
-  }, [data]);
-
-  async function addToBetslip(row: SummaryRow) {
-    const id = String(row.dg_id ?? row.player_name ?? "");
-    const dgIdStr = row.dg_id !== undefined && row.dg_id !== null && row.dg_id !== ""
-      ? String(row.dg_id)
-      : null;
-    const uniqueKey = makeUniqueKey({
-      tour,
-      eventId: data?.meta?.eventId ?? "",
-      market: row.market ?? "",
-      dgId: dgIdStr,
-      playerName: row.player_name ?? "",
-      opponents: row.opponents ?? "",
-    });
-    if (betslipKeySet.has(uniqueKey)) {
-      setError("That bet is already in the betslip.");
-      return;
-    }
-    setAddingId(id);
-    setError(null);
-    try {
-      const payload = {
-        tour,
-        market: row.market ?? "",
-        playerName: row.player_name ?? "",
-        dgId: toNumber(row.dg_id) ?? undefined,
-        opponents: row.opponents ?? "",
-        marketOddsBestDec: toNumber(row.market_odds_best_dec) ?? undefined,
-        marketBookBest: row.market_book_best ?? "",
-        pModel: toNumber(row.p_model) ?? undefined,
-      };
-      const res = await fetch("/api/betslip", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const text = await res.text();
-      if (text.trim().startsWith("<")) {
-        throw new Error(`Non-JSON response from /api/betslip (HTTP ${res.status}).`);
-      }
-      const json = JSON.parse(text);
-      if (!res.ok) throw new Error(json?.error || "Failed to add bet");
-      await load();
-    } catch (e: any) {
-      setError(e?.message ?? "Unknown error");
-    } finally {
-      setAddingId(null);
-    }
-  }
-
-  const meta = data?.meta;
+  const ytd = data?.ytd;
+  const weekly = data?.weeklyPlaced ?? [];
+  const eventTitle = data?.meta?.eventName
+    ? `${data.meta.eventName} ${data.meta.eventYear ?? ""}`
+    : "Current event unavailable";
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--gb-bg)", color: "var(--gb-text)" }}>
       <HeaderNav />
-
       <main style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <h1 style={{ margin: 0, fontWeight: 700, fontSize: 28 }}>
-            Value Summary
-          </h1>
-          <div style={{ display: "flex", gap: 6 }}>
-            <Button
-              onClick={() => setTour("pga")}
-              style={{
-                background: tour === "pga" ? "var(--gb-accent)" : "transparent",
-                color: tour === "pga" ? "var(--gb-surface)" : "var(--gb-accent)",
-                border: "1px solid var(--gb-accent)",
-              }}
-            >
-              PGA
-            </Button>
-            <Button
-              onClick={() => setTour("dp")}
-              style={{
-                background: tour === "dp" ? "var(--gb-accent)" : "transparent",
-                color: tour === "dp" ? "var(--gb-surface)" : "var(--gb-accent)",
-                border: "1px solid var(--gb-accent)",
-              }}
-            >
-              DP World Tour
-            </Button>
+          <div>
+            <h1 style={{ margin: 0, fontWeight: 800, fontSize: 30 }}>Golf Bets Webapp</h1>
+            <div style={{ color: "var(--gb-muted)", marginTop: 4 }}>{eventTitle}</div>
           </div>
-          <Button onClick={load} disabled={loading}>
-            {loading ? "Refreshing..." : "Refresh"}
-          </Button>
-          <Button onClick={runModel} disabled={runningModel}>
-            {runningModel ? "Starting..." : "Run Model"}
-          </Button>
-          <span style={{ marginLeft: "auto", color: "var(--gb-muted)" }}>
-            {meta?.eventName ? `${meta.eventName} ${meta.eventYear ?? ""}` : "No event meta"}
-          </span>
+          <div style={{ display: "flex", gap: 6, marginLeft: "auto" }}>
+            <Button onClick={() => setTour("pga")} style={{ background: tour === "pga" ? "var(--gb-accent)" : "transparent", color: tour === "pga" ? "var(--gb-surface)" : "var(--gb-accent)" }}>PGA</Button>
+            <Button onClick={() => setTour("dp")} style={{ background: tour === "dp" ? "var(--gb-accent)" : "transparent", color: tour === "dp" ? "var(--gb-surface)" : "var(--gb-accent)" }}>DP World Tour</Button>
+          </div>
+          <Button onClick={load} disabled={loading}>{loading ? "Refreshing..." : "Refresh"}</Button>
+          <Button onClick={runModel} disabled={running}>{running ? "Starting..." : "Run Model"}</Button>
         </div>
 
-        <div style={{ marginTop: 8, color: "var(--gb-muted)", fontSize: 13 }}>
-          Last Refreshed: {formatDateTime(lastUpdatedAt)}
-        </div>
-        <div style={{ marginTop: 4, color: "var(--gb-muted)", fontSize: 13 }}>
-          Model last ran at {formatDateTime(data?.lastUpdated)}
-          {runStatus ? ` • ${runStatus}` : ""}
-        </div>
-        <div style={{ marginTop: 4, color: "#8a8a8a", fontSize: 12 }}>
-          Note: model outputs can take up to ~5 minutes to fully update after a run.
-        </div>
-        {runStatus && (
-          <div style={{ marginTop: 8 }}>
-            <div style={{ color: "var(--gb-muted)", fontSize: 12, marginBottom: 6 }}>
-              Progress: {runProgress}%
-            </div>
-            <div
-              style={{
-                height: 8,
-                background: "#1a1a1a",
-                borderRadius: 999,
-                overflow: "hidden",
-              }}
-            >
-              <div
-                style={{
-                  width: `${runProgress}%`,
-                  height: "100%",
-                  background: "linear-gradient(90deg, #2dd4bf, #22d3ee)",
-                  transition: "width 300ms ease",
-                }}
-              />
-            </div>
-          </div>
-        )}
+        {status && <div style={{ marginTop: 12, color: "var(--gb-muted)" }}>{status}</div>}
+        {error && <pre style={{ marginTop: 12, color: "#b42335", whiteSpace: "pre-wrap" }}>{error}</pre>}
 
-        {error && (
-          <pre style={{ color: "#ff4d4d", whiteSpace: "pre-wrap", marginTop: 12 }}>
-            {error}
-          </pre>
-        )}
+        <div style={{ height: 18 }} />
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
+          <Card><Stat label="YTD P/L" value={`${fmtSigned(ytd?.pnlUnits)}u`} /></Card>
+          <Card><Stat label="YTD ROI" value={fmtPct(ytd?.roi)} /></Card>
+          <Card><Stat label="Bets Placed" value={String(ytd?.betsPlaced ?? 0)} /></Card>
+          <Card><Stat label="Won / Lost" value={`${ytd?.betsWon ?? 0} / ${ytd?.betsLost ?? 0}`} /></Card>
+        </div>
 
         <div style={{ height: 16 }} />
 
         <Card>
-          {!rows.length ? (
-            <p style={{ margin: 0, color: "var(--gb-muted)" }}>No summary rows available.</p>
+          <h2 style={{ margin: "0 0 10px", fontSize: 20 }}>Best YTD Bet</h2>
+          {!ytd?.bestBet ? (
+            <p style={{ margin: 0, color: "var(--gb-muted)" }}>No settled bets yet.</p>
+          ) : (
+            <div style={{ display: "flex", gap: 18, flexWrap: "wrap", color: "var(--gb-muted)" }}>
+              <b style={{ color: "var(--gb-text)" }}>{ytd.bestBet.playerName}</b>
+              <span>{ytd.bestBet.market}</span>
+              <span>{ytd.bestBet.eventName} {ytd.bestBet.eventYear}</span>
+              <span>Odds {fmt(ytd.bestBet.odds)}</span>
+              <span>Stake {fmt(ytd.bestBet.stake)}u</span>
+              <span style={{ color: "var(--gb-positive)", fontWeight: 800 }}>Return {fmtSigned(ytd.bestBet.returnUnits)}u</span>
+            </div>
+          )}
+        </Card>
+
+        <div style={{ height: 16 }} />
+
+        <Card>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline", flexWrap: "wrap", marginBottom: 10 }}>
+            <h2 style={{ margin: 0, fontSize: 20 }}>Bets Placed This Week</h2>
+            <span style={{ color: "var(--gb-muted)", fontSize: 13 }}>
+              {data?.liveError
+                ? `Live feed: ${data.liveError}`
+                : data?.liveLastUpdate
+                  ? `Live updated: ${data.liveLastUpdate}`
+                  : "Live feed pending"}
+            </span>
+          </div>
+          {!weekly.length ? (
+            <p style={{ margin: 0, color: "var(--gb-muted)" }}>No placed bets for the current event yet.</p>
           ) : (
             <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 14 }}>
+              <table style={{ width: "100%", minWidth: 900, borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
-                    {["Market", "Player", "Opponents", "Book", "Odds", "Model", "EV / Unit", "Edge", ""].map(
-                      (h) => (
-                        <th
-                          key={h}
-                          style={{
-                            textAlign: "left",
-                            padding: "8px 10px",
-                            borderBottom: "1px solid var(--gb-border-soft)",
-                            color: "var(--gb-muted)",
-                            fontWeight: 600,
-                          }}
-                        >
-                          {h}
-                        </th>
-                      )
-                    )}
+                    {["Market", "Player", "Opponents", "Book", "Odds", "Stake", "Model", "EV", "Live Status", "Live Detail"].map((h) => (
+                      <th key={h} style={{ textAlign: "left", padding: 10, borderBottom: "1px solid var(--gb-border-soft)", color: "var(--gb-muted)" }}>{h}</th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r, i) => {
-                    const isValue = (toNumber(r.ev_per_unit) ?? -999) > 0;
-                    const rowId = String(r.dg_id ?? r.player_name ?? i);
-                    const rowKey = makeUniqueKey({
-                      tour,
-                      eventId: meta?.eventId ?? "",
-                      market: r.market ?? "",
-                      dgId:
-                        r.dg_id !== undefined && r.dg_id !== null && r.dg_id !== ""
-                          ? String(r.dg_id)
-                          : null,
-                      playerName: r.player_name ?? "",
-                      opponents: r.opponents ?? "",
-                    });
-                    const alreadyAdded = betslipKeySet.has(rowKey);
-                    return (
-                      <tr
-                        key={`${rowId}-${i}`}
-                        style={{
-                          background: isValue ? "rgba(0, 200, 120, 0.12)" : "transparent",
-                        }}
-                      >
-                        <td style={{ padding: "8px 10px", borderBottom: "1px solid var(--gb-border-soft)" }}>
-                          {r.market ?? "-"}
-                        </td>
-                        <td style={{ padding: "8px 10px", borderBottom: "1px solid var(--gb-border-soft)" }}>
-                          {r.player_name ?? "-"}
-                        </td>
-                        <td style={{ padding: "8px 10px", borderBottom: "1px solid var(--gb-border-soft)" }}>
-                          {r.opponents ?? "-"}
-                        </td>
-                        <td style={{ padding: "8px 10px", borderBottom: "1px solid var(--gb-border-soft)" }}>
-                          {r.market_book_best ?? "-"}
-                        </td>
-                        <td style={{ padding: "8px 10px", borderBottom: "1px solid var(--gb-border-soft)" }}>
-                          {formatOdds(r.market_odds_best_dec)}
-                        </td>
-                        <td style={{ padding: "8px 10px", borderBottom: "1px solid var(--gb-border-soft)" }}>
-                          {formatPct(r.p_model)}
-                        </td>
-                        <td
-                          style={{
-                            padding: "8px 10px",
-                            borderBottom: "1px solid var(--gb-border-soft)",
-                            color: isValue ? "var(--gb-positive)" : "var(--gb-muted)",
-                            fontWeight: isValue ? 700 : 400,
-                          }}
-                        >
-                          {formatEv(r.ev_per_unit)}
-                        </td>
-                        <td
-                          style={{
-                            padding: "8px 10px",
-                            borderBottom: "1px solid var(--gb-border-soft)",
-                            color: isValue ? "var(--gb-positive)" : "var(--gb-muted)",
-                            fontWeight: isValue ? 700 : 400,
-                          }}
-                        >
-                          {formatEdge(r.edge_prob)}
-                        </td>
-                        <td style={{ padding: "8px 10px", borderBottom: "1px solid var(--gb-border-soft)" }}>
-                          <Button
-                            onClick={() => addToBetslip(r)}
-                            disabled={addingId === rowId || alreadyAdded}
-                          >
-                            {addingId === rowId
-                              ? "Adding..."
-                              : alreadyAdded
-                                ? "Added"
-                                : "Add to Betslip"}
-                          </Button>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                  {weekly.map((b, i) => (
+                    <tr key={b.id} style={{ background: i % 2 ? "var(--gb-row-alt)" : "transparent" }}>
+                      <td style={cell}>{b.market}</td>
+                      <td style={cell}>{b.playerName}</td>
+                      <td style={cell}>{b.opponents || "-"}</td>
+                      <td style={cell}>{b.book || "-"}</td>
+                      <td style={cell}>{fmt(b.odds)}</td>
+                      <td style={cell}>{fmt(b.stake)}</td>
+                      <td style={cell}>{fmtPct(b.pModel)}</td>
+                      <td style={cell}>{fmtSigned(b.evPerUnit, 3)}</td>
+                      <td style={{ ...cell, color: liveColor(b.liveStatus), fontWeight: 800 }}>{b.liveStatus}</td>
+                      <td style={{ ...cell, color: "var(--gb-muted)" }}>{b.liveDetail || "-"}</td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
@@ -495,4 +213,28 @@ export default function HomePage() {
       </main>
     </div>
   );
+}
+
+function Stat({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <div style={{ color: "var(--gb-muted)", fontSize: 13, marginBottom: 6 }}>{label}</div>
+      <div style={{ fontSize: 26, fontWeight: 850 }}>{value}</div>
+    </div>
+  );
+}
+
+const cell = {
+  padding: 10,
+  borderBottom: "1px solid var(--gb-border-soft)",
+  whiteSpace: "nowrap" as const,
+};
+
+
+function liveColor(status: string) {
+  const s = status.toLowerCase();
+  if (s.includes("winning") || s.includes("win")) return "var(--gb-positive)";
+  if (s.includes("losing") || s.includes("loss")) return "#b42335";
+  if (s.includes("tied")) return "#9a6a12";
+  return "var(--gb-muted)";
 }
