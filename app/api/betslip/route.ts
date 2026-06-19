@@ -282,18 +282,16 @@ async function buildOutputMap(tour: string, eventId: string) {
         toNumber(r.market_odds_best_dec) ?? toNumber(r.market_odds) ?? toNumber(r.odds);
       const marketBookBest = r.market_book_best || r.market_book || r.book || null;
       let pModel: number | null = null;
-      if (m.key === "win") {
-        pModel = toNumber(r.win_prob_anchored) ?? toNumber(r.win_prob_model) ?? null;
-      } else if (m.key === "top5") {
-        pModel = toNumber(r.top5_prob_anchored) ?? toNumber(r.top5_prob_model) ?? null;
-      } else if (m.key === "top10") {
-        pModel = toNumber(r.top10_prob_anchored) ?? toNumber(r.top10_prob_model) ?? null;
+      if (m.key === "top10") {
+        pModel = toNumber(r.p_model) ?? toNumber(r.top10_strategy_prob) ?? toNumber(r.top10_prob_anchored) ?? toNumber(r.top10_prob_model) ?? null;
       } else if (m.key === "missCut") {
-        pModel = toNumber(r.p_miss_cut_anchored) ?? toNumber(r.p_miss_cut_model) ?? null;
+        pModel = toNumber(r.p_model) ?? toNumber(r.miss_cut_strategy_prob) ?? toNumber(r.p_miss_cut_dg) ?? toNumber(r.p_miss_cut_anchored) ?? toNumber(r.p_miss_cut_model) ?? null;
       } else if (m.key === "makeCut") {
-        pModel = toNumber(r.p_make_cut_anchored) ?? toNumber(r.p_make_cut_model) ?? null;
+        pModel = toNumber(r.p_model) ?? toNumber(r.make_cut_strategy_prob) ?? toNumber(r.p_make_cut_anchored) ?? toNumber(r.p_make_cut_model) ?? null;
       } else if (m.key === "top20") {
         pModel =
+          toNumber(r.p_model) ??
+          toNumber(r.top20_strategy_prob) ??
           toNumber(r.top20_prob_anchored_dh) ??
           toNumber(r.top20_prob_anchored) ??
           toNumber(r.top20_prob_model) ??
@@ -302,12 +300,13 @@ async function buildOutputMap(tour: string, eventId: string) {
       if (pModel === null) {
         pModel =
           toNumber(r.p_model) ??
+          toNumber(r.top10_strategy_prob) ??
+          toNumber(r.top20_strategy_prob) ??
+          toNumber(r.make_cut_strategy_prob) ??
+          toNumber(r.miss_cut_strategy_prob) ??
           toNumber(r.top20_prob_anchored_dh) ??
-          toNumber(r.top20_prob_anchored) ??
           toNumber(r.top20_prob_model) ??
-          toNumber(r.p_make_cut_anchored) ??
           toNumber(r.p_make_cut_model) ??
-          toNumber(r.p_miss_cut_anchored) ??
           toNumber(r.p_miss_cut_model) ??
           null;
       }

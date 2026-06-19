@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { HeaderNav, Button } from "../components/ui";
 
-type Market = "top10" | "top20" | "make_cut" | "miss_cut" | "matchup_2b" | "matchup_3b";
+type Market = "top10" | "top20" | "make_cut" | "miss_cut";
 type TableData = { headers: string[]; rows: string[][] };
 type RunResponse = {
   ok?: boolean;
@@ -30,6 +30,9 @@ type DisplayRow = {
   evPerUnit: number | null;
   dgId: string | null;
   marketLabel: string;
+  strategyName: string;
+  strategyTier: string;
+  qualified: boolean;
 };
 
 function toNumber(x: unknown): number | null {
@@ -77,8 +80,14 @@ function marketLabel(market: Market): string {
   if (market === "top20") return "Top 20";
   if (market === "make_cut") return "Make Cut";
   if (market === "miss_cut") return "Miss Cut";
-  if (market === "matchup_2b") return "Matchup 2-Ball";
-  return "Matchup 3-Ball";
+  return "Miss Cut";
+}
+
+function strategyNote(market: Market): string {
+  if (market === "miss_cut") return "Tier 1 core: DataGolf miss-cut EV >= 15%, odds <= 10. Around-green weakness upgrades confidence only.";
+  if (market === "make_cut") return "Tier 2 candidate: make-cut EV >= 7.5%, odds <= 3, using the tested putting overlay.";
+  if (market === "top10") return "Tier 2: Top 10 current-price EV >= 20%, odds <= 10, using the putting overlay.";
+  return "Tier 3 experimental: Top 20 EV >= 25%, odds <= 15, using the OTT overlay.";
 }
 
 function makeUniqueKey(input: {
@@ -109,17 +118,19 @@ function buildDisplayRows(raw: TableData | null, market: Market): DisplayRow[] {
   const idxOdds = pickIndex(h, ["market_odds_best_dec", "best_market_odds", "best_odds", "odds_best_dec", "odds"]);
   const idxMarketProb = pickIndex(h, ["market_prob_best", "market_prob", "implied_prob"]);
   const idxEdge = pickIndex(h, ["edge_prob", "edge"]);
+  const idxEv = pickIndex(h, ["ev_per_unit", "ev"]);
+  const idxStrategyName = pickIndex(h, ["strategy_name", "strategy"]);
+  const idxStrategyTier = pickIndex(h, ["strategy_tier", "tier", "confidence"]);
+  const idxQualified = pickIndex(h, ["strategy_qualified", "bet_flag"]);
 
   const idxModelProb =
     market === "top10"
-      ? pickIndex(h, ["top10_prob_anchored", "top10_prob_model", "p_model"])
+      ? pickIndex(h, ["p_model", "top10_strategy_prob", "top10_prob_anchored", "top10_prob_model"])
       : market === "top20"
-      ? pickIndex(h, ["top20_prob_anchored_dh", "top20_prob_anchored", "top20_prob_dh", "top20_prob_model", "p_model"])
+      ? pickIndex(h, ["p_model", "top20_strategy_prob", "top20_prob_anchored_dh", "top20_prob_anchored", "top20_prob_model"])
       : market === "make_cut"
-      ? pickIndex(h, ["p_make_cut_anchored", "p_make_cut_model", "p_make_cut", "make_cut_prob", "p_model"])
-      : market === "miss_cut"
-      ? pickIndex(h, ["p_miss_cut_anchored", "p_miss_cut_model", "p_miss_cut", "miss_cut_prob", "p_model"])
-      : pickIndex(h, ["p_model", "win_prob", "model_prob"]);
+      ? pickIndex(h, ["p_model", "make_cut_strategy_prob", "p_make_cut_anchored", "p_make_cut_model", "p_make_cut"])
+      : pickIndex(h, ["p_model", "miss_cut_strategy_prob", "p_miss_cut_dg", "p_miss_cut_anchored", "p_miss_cut_model", "p_miss_cut"]);
 
   return raw.rows
     .map((r) => {
@@ -128,10 +139,15 @@ function buildDisplayRows(raw: TableData | null, market: Market): DisplayRow[] {
       const modelProb = idxModelProb >= 0 ? toNumber(r[idxModelProb]) : null;
       const edgeCsv = idxEdge >= 0 ? toNumber(r[idxEdge]) : null;
       const edge = edgeCsv !== null ? edgeCsv : modelProb !== null && marketProb !== null ? modelProb - marketProb : null;
+      const evCsv = idxEv >= 0 ? toNumber(r[idxEv]) : null;
       const evPerUnit =
-        modelProb !== null && odds !== null && odds > 1
+        evCsv !== null
+          ? evCsv
+          : modelProb !== null && odds !== null && odds > 1
           ? modelProb * (odds - 1) - (1 - modelProb)
           : null;
+      const qualifiedRaw = idxQualified >= 0 ? String(r[idxQualified] ?? "").toLowerCase() : "";
+      const qualified = ["true", "1", "yes"].includes(qualifiedRaw);
       return {
         playerName: idxPlayer >= 0 ? r[idxPlayer] ?? "" : "",
         opponents: idxOpp >= 0 ? r[idxOpp] ?? "" : "",
@@ -143,6 +159,9 @@ function buildDisplayRows(raw: TableData | null, market: Market): DisplayRow[] {
         evPerUnit,
         dgId: idxDgId >= 0 && r[idxDgId] ? String(r[idxDgId]) : null,
         marketLabel: marketLabel(market),
+        strategyName: idxStrategyName >= 0 ? r[idxStrategyName] ?? "" : strategyNote(market),
+        strategyTier: idxStrategyTier >= 0 ? r[idxStrategyTier] ?? "" : "Research",
+        qualified,
       };
     })
     .filter((r) => r.playerName)
@@ -150,7 +169,7 @@ function buildDisplayRows(raw: TableData | null, market: Market): DisplayRow[] {
 }
 
 export default function ValueScreensPage() {
-  const [market, setMarket] = useState<Market>("top20");
+  const [market, setMarket] = useState<Market>("top10");
   const [tour, setTour] = useState<"pga" | "dp">("pga");
   const [data, setData] = useState<RunResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -196,23 +215,7 @@ export default function ValueScreensPage() {
       const json = (await res.json()) as RunResponse;
       if (!json?.ok) throw new Error(json?.error ?? "API error");
       setData(json);
-      const isMatchup = market === "matchup_2b" || market === "matchup_3b";
-      const table = market === "top10"
-        ? json.tables?.top10
-        : market === "top20"
-        ? json.tables?.top20
-        : market === "make_cut"
-        ? json.tables?.makeCut
-        : market === "miss_cut"
-        ? json.tables?.missCut
-        : market === "matchup_2b"
-        ? json.tables?.matchup2
-        : json.tables?.matchup3;
-      if (isMatchup && table && Array.isArray(table.rows) && table.rows.length === 0) {
-        setStatus("No matchup odds available for this event.");
-      } else {
-        setStatus("Loaded");
-      }
+      setStatus("Loaded");
     } catch (e: any) {
       setError(e?.message ?? "Failed to load");
       setStatus(e?.message ?? "Failed to load");
@@ -256,9 +259,7 @@ export default function ValueScreensPage() {
     if (market === "top10") return data.tables.top10 ?? null;
     if (market === "top20") return data.tables.top20 ?? null;
     if (market === "make_cut") return data.tables.makeCut ?? null;
-    if (market === "miss_cut") return data.tables.missCut ?? null;
-    if (market === "matchup_2b") return data.tables.matchup2 ?? null;
-    return data.tables.matchup3 ?? null;
+    return data.tables.missCut ?? null;
   }, [data, market]);
 
   const rows = useMemo(() => buildDisplayRows(rawTable, market), [rawTable, market]);
@@ -327,40 +328,38 @@ export default function ValueScreensPage() {
     <div style={{ minHeight: "100vh", background: "var(--gb-bg)", fontFamily: "Arial, Helvetica, sans-serif", color: "var(--gb-text)" }}>
       <HeaderNav />
 
-      <main style={{ padding: 24, maxWidth: 1400, margin: "0 auto" }}>
-        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+      <main className="gb-page-shell">
+        <div className="gb-page-header">
           <h1 style={{ marginTop: 0, fontWeight: 700, fontSize: 28 }}>Value Screens</h1>
-          <div style={{ display: "flex", gap: 6 }}>
+          <div className="gb-actions">
             <Button onClick={() => setTour("pga")} style={{ background: tour === "pga" ? "var(--gb-accent)" : "transparent", color: tour === "pga" ? "var(--gb-surface)" : "var(--gb-accent)", border: "1px solid var(--gb-accent)" }}>PGA</Button>
             <Button onClick={() => setTour("dp")} style={{ background: tour === "dp" ? "var(--gb-accent)" : "transparent", color: tour === "dp" ? "var(--gb-surface)" : "var(--gb-accent)", border: "1px solid var(--gb-accent)" }}>DP World Tour</Button>
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 12, flexWrap: "wrap" }}>
-          <select value={market} onChange={(e) => setMarket(e.target.value as Market)} style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--gb-border)", background: "var(--gb-surface)", color: "var(--gb-text)" }}>
+        <div className="gb-control-bar">
+          <select value={market} onChange={(e) => setMarket(e.target.value as Market)} className="gb-control" style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--gb-border)", background: "var(--gb-surface)", color: "var(--gb-text)" }}>
             <option value="top10">Top 10</option>
             <option value="top20">Top 20</option>
             <option value="make_cut">Make Cut</option>
             <option value="miss_cut">Miss Cut</option>
-            <option value="matchup_2b">Matchups (2-Ball)</option>
-            <option value="matchup_3b">Matchups (3-Ball)</option>
           </select>
 
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search player, opponent or book"
-            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--gb-border)", background: "var(--gb-surface)", color: "var(--gb-text)", minWidth: 260 }}
+            className="gb-control-wide" style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--gb-border)", background: "var(--gb-surface)", color: "var(--gb-text)", minWidth: 260 }}
           />
 
           <input
             value={minEv}
             onChange={(e) => setMinEv(e.target.value)}
             placeholder="Min EV / unit (0.000 default)"
-            style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--gb-border)", background: "var(--gb-surface)", color: "var(--gb-text)", width: 190 }}
+            className="gb-control" style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--gb-border)", background: "var(--gb-surface)", color: "var(--gb-text)", width: 190 }}
           />
 
-          <label style={{ display: "flex", alignItems: "center", gap: 8, color: "#ddd" }}>
+          <label className="gb-control" style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--gb-muted)" }}>
             <input type="checkbox" checked={onlyValue} onChange={(e) => setOnlyValue(e.target.checked)} />
             Value only
           </label>
@@ -368,6 +367,7 @@ export default function ValueScreensPage() {
           <select
             value={metricView}
             onChange={(e) => setMetricView(e.target.value as "edge" | "ev")}
+            className="gb-control"
             style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--gb-border)", background: "var(--gb-surface)", color: "var(--gb-text)" }}
           >
             <option value="edge">Show Edge</option>
@@ -388,8 +388,11 @@ export default function ValueScreensPage() {
           </span>
         </div>
 
-        <div style={{ marginBottom: 12, color: "var(--gb-muted)" }}>
-          Showing {filteredRows.length} of {rows.length} rows
+        <div style={{ marginBottom: 12, display: "grid", gap: 8 }}>
+          <div style={{ border: "1px solid var(--gb-border)", background: "var(--gb-surface)", borderRadius: 14, padding: 12, color: "var(--gb-muted)" }}>
+            <strong style={{ color: "var(--gb-text)" }}>{marketLabel(market)} strategy:</strong> {strategyNote(market)}
+          </div>
+          <div style={{ color: "var(--gb-muted)" }}>Showing {filteredRows.length} of {rows.length} rows</div>
         </div>
 
         {error && <div style={{ marginBottom: 12, color: "#ff7a7a" }}>{error}</div>}
@@ -399,11 +402,11 @@ export default function ValueScreensPage() {
             <p style={{ margin: 0 }}>No data loaded.</p>
           </div>
         ) : (
-          <div style={{ overflowX: "auto", border: "1px solid var(--gb-border)", borderRadius: 14 }}>
+          <div className="gb-table-scroll gb-mobile-card-table">
             <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 1100 }}>
               <thead>
                 <tr>
-                  {["Player", "Opponent(s)", "Odds", "Book", "Market Win %", "Model Win %", metricView === "edge" ? "Edge" : "EV / Unit", ""].map((hh) => (
+                  {["Player", "Strategy", "Tier", "Odds", "Book", "Market %", "Model %", metricView === "edge" ? "Edge" : "EV / Unit", ""].map((hh) => (
                     <th key={hh} style={{ textAlign: "left", padding: 10, borderBottom: "1px solid var(--gb-border)", background: "var(--gb-surface)", color: "var(--gb-text)", whiteSpace: "nowrap" }}>
                       {hh}
                     </th>
@@ -426,16 +429,17 @@ export default function ValueScreensPage() {
                   const metricValue = metricView === "edge" ? formatEdge(row.edge) : formatEv(row.evPerUnit);
                   return (
                     <tr key={rowId + i} style={{ background: i % 2 === 0 ? "var(--gb-bg)" : "var(--gb-row-alt)" }}>
-                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{row.playerName}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{row.opponents}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{formatOdds(row.odds)}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{row.book}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{formatPct(row.marketProb)}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{formatPct(row.modelProb)}</td>
-                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap", color: isValue ? "var(--gb-positive)" : "var(--gb-muted)", fontWeight: isValue ? 700 : 400 }}>
+                      <td data-label="Player" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{row.playerName}</td>
+                      <td data-label="Strategy" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", minWidth: 220 }}>{row.strategyName}</td>
+                      <td data-label="Tier" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap", color: row.qualified ? "var(--gb-positive)" : "var(--gb-muted)", fontWeight: row.qualified ? 700 : 500 }}>{row.strategyTier}</td>
+                      <td data-label="Odds" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{formatOdds(row.odds)}</td>
+                      <td data-label="Book" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{row.book}</td>
+                      <td data-label="Market %" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{formatPct(row.marketProb)}</td>
+                      <td data-label="Model %" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{formatPct(row.modelProb)}</td>
+                      <td data-label={metricView === "edge" ? "Edge" : "EV / Unit"} style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap", color: isValue ? "var(--gb-positive)" : "var(--gb-muted)", fontWeight: isValue ? 700 : 400 }}>
                         {metricValue}
                       </td>
-                      <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>
+                      <td data-label="" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>
                         <Button onClick={() => addToBetslip(row)} disabled={addingId === rowId || alreadyAdded}>
                           {addingId === rowId ? "Adding..." : alreadyAdded ? "Added" : "Add to Betslip"}
                         </Button>

@@ -130,13 +130,13 @@ export default function HomePage() {
   return (
     <div style={{ minHeight: "100vh", background: "var(--gb-bg)", color: "var(--gb-text)" }}>
       <HeaderNav />
-      <main style={{ padding: 24, maxWidth: 1200, margin: "0 auto" }}>
-        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+      <main className="gb-page-shell gb-page-shell-narrow">
+        <div className="gb-page-header">
           <div>
             <h1 style={{ margin: 0, fontWeight: 800, fontSize: 30 }}>Golf Bets Webapp</h1>
             <div style={{ color: "var(--gb-muted)", marginTop: 4 }}>{eventTitle}</div>
           </div>
-          <div style={{ display: "flex", gap: 6, marginLeft: "auto" }}>
+          <div className="gb-actions gb-actions-auto">
             <Button onClick={() => setTour("pga")} style={{ background: tour === "pga" ? "var(--gb-accent)" : "transparent", color: tour === "pga" ? "var(--gb-surface)" : "var(--gb-accent)" }}>PGA</Button>
             <Button onClick={() => setTour("dp")} style={{ background: tour === "dp" ? "var(--gb-accent)" : "transparent", color: tour === "dp" ? "var(--gb-surface)" : "var(--gb-accent)" }}>DP World Tour</Button>
           </div>
@@ -190,7 +190,7 @@ export default function HomePage() {
           {!weekly.length ? (
             <p style={{ margin: 0, color: "var(--gb-muted)" }}>No placed bets for the current event yet.</p>
           ) : (
-            <div style={{ overflowX: "auto" }}>
+            <div className="gb-table-scroll gb-mobile-card-table">
               <table style={{ width: "100%", minWidth: 900, borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
@@ -202,14 +202,14 @@ export default function HomePage() {
                 <tbody>
                   {weekly.map((b, i) => (
                     <tr key={b.id} style={{ background: i % 2 ? "var(--gb-row-alt)" : "transparent" }}>
-                      <td style={cell}>{b.market}</td>
-                      <td style={cell}>{b.playerName}</td>
-                      <td style={cell}>{b.opponents || "-"}</td>
-                      <td style={cell}>{b.book || "-"}</td>
-                      <td style={cell}>{fmt(b.odds)}</td>
-                      <td style={cell}>{fmt(b.stake)}</td>
-                      <td style={{ ...cell, color: liveColor(b.liveStatus), fontWeight: 800 }}>{b.liveStatus}</td>
-                      <td style={{ ...cell, color: "var(--gb-muted)" }}>{b.liveDetail || "-"}</td>
+                      <td data-label="Market" style={cell}>{b.market}</td>
+                      <td data-label="Player" style={cell}>{b.playerName}</td>
+                      <td data-label="Opponents" style={cell}>{b.opponents || "-"}</td>
+                      <td data-label="Book" style={cell}>{b.book || "-"}</td>
+                      <td data-label="Odds" style={cell}>{fmt(b.odds)}</td>
+                      <td data-label="Stake" style={cell}>{fmt(b.stake)}</td>
+                      <td data-label="Live Status" style={{ ...cell, color: liveColor(b.liveStatus), fontWeight: 800 }}>{b.liveStatus}</td>
+                      <td data-label="Live Detail" style={{ ...cell, color: "var(--gb-muted)" }}>{b.liveDetail || "-"}</td>
                     </tr>
                   ))}
                 </tbody>

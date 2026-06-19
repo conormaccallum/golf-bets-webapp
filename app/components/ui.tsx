@@ -83,8 +83,8 @@ export function Card({ children }: { children: ReactNode }) {
 export function Table({ data }: { data: { headers: string[]; rows: string[][] } }) {
   return (
     <div
+      className="gb-table-scroll gb-mobile-card-table"
       style={{
-        overflowX: "auto",
         border: "1px solid var(--gb-border)",
         borderRadius: 14,
         background: "var(--gb-surface)",
@@ -119,6 +119,7 @@ export function Table({ data }: { data: { headers: string[]; rows: string[][] } 
               {row.map((cell, j) => (
                 <td
                   key={j}
+                  data-label={data.headers[j] ?? ""}
                   style={{
                     padding: 10,
                     borderBottom: "1px solid var(--gb-border-soft)",
@@ -141,7 +142,7 @@ export function HeaderNav() {
     <header
       style={{
         borderBottom: "1px solid var(--gb-border-soft)",
-        padding: "14px 24px",
+        padding: "clamp(10px, 2.6vw, 14px) clamp(10px, 4vw, 24px)",
         position: "sticky",
         top: 0,
         background: "var(--gb-bg)",
@@ -153,8 +154,9 @@ export function HeaderNav() {
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          gap: 14,
+          gap: 10,
           padding: "0 16px",
+          flexWrap: "wrap",
         }}
       >
         <NavLink href="/">Home</NavLink>

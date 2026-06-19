@@ -108,14 +108,14 @@ export async function GET(req: Request) {
         const edge = toNumber(r.edge_prob);
         const pModel =
           toNumber(r.p_model) ??
-          toNumber(r.win_prob_anchored) ??
-          toNumber(r.win_prob_model) ??
-          toNumber(r.top5_prob_anchored) ??
-          toNumber(r.top5_prob_model) ??
+          toNumber(r.top10_strategy_prob) ??
+          toNumber(r.top20_strategy_prob) ??
+          toNumber(r.make_cut_strategy_prob) ??
+          toNumber(r.miss_cut_strategy_prob) ??
+          toNumber(r.p_miss_cut_dg) ??
           toNumber(r.top10_prob_anchored) ??
           toNumber(r.top10_prob_model) ??
           toNumber(r.top20_prob_anchored_dh) ??
-          toNumber(r.top20_prob_anchored) ??
           toNumber(r.top20_prob_model) ??
           toNumber(r.p_make_cut_anchored) ??
           toNumber(r.p_make_cut_model) ??
@@ -136,6 +136,8 @@ export async function GET(req: Request) {
           edge_prob: edge,
           ev_per_unit: evPerUnit,
           p_model: pModel,
+          strategy_name: r.strategy_name || "",
+          strategy_tier: r.strategy_tier || "",
         });
       }
     }
