@@ -48,6 +48,25 @@ function settledStatus(resultWinFlag: number | null, returnUnits: number | null,
   return liveStatus;
 }
 
+function closeEnough(a: number | null, b: number | null) {
+  if (a === null || b === null) return true;
+  return Math.abs(Number(a) - Number(b)) < 0.0001;
+}
+
+function findMatchingSlip(slips: any[], bet: any) {
+  return slips.find((s) => {
+    const sameMarket = (s.market || "").trim().toLowerCase() === (bet.betType || "").trim().toLowerCase();
+    const samePlayer = (s.playerName || "").trim().toLowerCase() === (bet.playerName || "").trim().toLowerCase();
+    const sameDg = s.dgId && bet.dgId != null ? String(s.dgId) === String(bet.dgId) : true;
+    const sameBook = s.marketBookBest && bet.marketBookBest
+      ? String(s.marketBookBest).toLowerCase() === String(bet.marketBookBest).toLowerCase()
+      : true;
+    const slipOdds = s.oddsEnteredDec ?? s.marketOddsBestDec;
+    const sameOdds = closeEnough(slipOdds, bet.marketOddsBestDec);
+    return sameMarket && samePlayer && sameDg && sameBook && sameOdds;
+  }) ?? null;
+}
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -112,7 +131,7 @@ export async function GET(req: Request) {
         odds: b.marketOddsBestDec,
         stake: b.stakeUnits,
       });
-      const slip = betslipBySignature.get(sig);
+      const slip = betslipBySignature.get(sig) ?? findMatchingSlip(placedItems, b);
       if (slip) usedBetslipIds.add(slip.id);
       weeklyRows.push({
         id: `performance-${b.id}`,

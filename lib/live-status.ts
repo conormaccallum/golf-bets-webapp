@@ -130,8 +130,15 @@ function findPlayer(bet: BetLike, lookup: ReturnType<typeof buildLiveLookup>) {
 
 function findOpponentRows(opponents: string | null | undefined, lookup: ReturnType<typeof buildLiveLookup>) {
   if (!opponents) return [];
-  return opponents
-    .split(",")
+
+  // DataGolf names use "Surname, Firstname", so never split plain commas.
+  // Multiple matchup opponents should be separated by explicit delimiters.
+  const raw = opponents.trim();
+  const direct = lookup.byName.get(normalizeName(raw));
+  if (direct) return [direct];
+
+  return raw
+    .split(/\s+(?:\/|\||vs\.?|v\.?|and|&)\s+|\s*;\s*/i)
     .map((x) => x.trim())
     .filter(Boolean)
     .map((name) => lookup.byName.get(normalizeName(name)) ?? null)
