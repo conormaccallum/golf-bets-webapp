@@ -62,6 +62,33 @@ function scoreText(row: LiveRow | null) {
   return [pos, scorePart, thru].filter(Boolean).join(" • ");
 }
 
+function isLikelyMadeCut(row: LiveRow | null) {
+  if (!row) return null;
+  const posRaw = String(row.current_pos ?? "").toLowerCase();
+  if (/(cut|wd|dq|mc)/.test(posRaw)) return false;
+  const makeCut = toNumber(row.make_cut);
+  if (makeCut === null) return null;
+  if (makeCut >= 0.999) return true;
+  if (makeCut <= 0.001) return false;
+  return null;
+}
+
+function playerLabel(row: LiveRow | null, fallback = "Opponent") {
+  return String(row?.player_name ?? fallback);
+}
+
+function signedScore(v: number | null) {
+  if (v === null) return "-";
+  return `${v > 0 ? "+" : ""}${v}`;
+}
+
+function matchupScoreLine(selectedRow: LiveRow, opponentRows: LiveRow[]) {
+  const selectedScore = toNumber(selectedRow.current_score);
+  const selectedName = playerLabel(selectedRow, "Player");
+  const oppParts = opponentRows.map((o) => `${playerLabel(o)} ${signedScore(toNumber(o.current_score))}`);
+  return `${selectedName} ${signedScore(selectedScore)}${oppParts.length ? ` vs ${oppParts.join(" / ")}` : ""}`;
+}
+
 export async function fetchLiveRows(tour: string): Promise<{ rows: LiveRow[]; info: any | null; error?: string }> {
   const key = process.env.DATAGOLF_API_KEY;
   if (!key) return { rows: [], info: null, error: "Missing DATAGOLF_API_KEY" };
@@ -146,16 +173,48 @@ export function statusForBet(
     const selected = toNumber(row.current_score);
     const opponents = findOpponentRows(bet.opponents, lookup);
     const oppScores = opponents.map((o) => toNumber(o.current_score)).filter((v): v is number => v !== null);
-    if (selected === null || oppScores.length === 0) {
-      out = { available: true, status: "Live scores pending", detail: scoreText(row) };
+    const selectedMadeCut = isLikelyMadeCut(row);
+    const opponentCutStates = opponents.map((o) => isLikelyMadeCut(o));
+    const anyOpponentMadeCut = opponentCutStates.some((v) => v === true);
+    const allKnownOpponentsMissedCut = opponentCutStates.length > 0 && opponentCutStates.every((v) => v === false);
+    const scoreLine = matchupScoreLine(row, opponents);
+
+    if (selectedMadeCut === true && allKnownOpponentsMissedCut) {
+      out = {
+        available: true,
+        status: "Currently winning",
+        detail: `${scoreLine} • opponent missed cut`,
+        currentPos: row.current_pos ?? null,
+        currentScore: selected,
+        thru: row.thru ?? null,
+        round: row.round ?? null,
+        today: toNumber(row.today),
+        liveProb: null,
+      };
+    } else if (selectedMadeCut === false && anyOpponentMadeCut) {
+      out = {
+        available: true,
+        status: "Currently losing",
+        detail: `${scoreLine} • player missed cut`,
+        currentPos: row.current_pos ?? null,
+        currentScore: selected,
+        thru: row.thru ?? null,
+        round: row.round ?? null,
+        today: toNumber(row.today),
+        liveProb: null,
+      };
+    } else if (selected === null || oppScores.length === 0) {
+      out = { available: true, status: "Live scores pending", detail: scoreLine || scoreText(row) };
     } else {
       const bestOpp = Math.min(...oppScores);
-      const currentlyWinning = selected < bestOpp;
-      const tied = selected === bestOpp;
+      const diff = bestOpp - selected;
+      const currentlyWinning = diff > 0;
+      const tied = diff === 0;
+      const diffText = tied ? "level" : `${Math.abs(diff)} ${currentlyWinning ? "ahead" : "behind"}`;
       out = {
         available: true,
         status: tied ? "Currently tied" : currentlyWinning ? "Currently winning" : "Currently losing",
-        detail: `${scoreText(row)} • Opp best ${bestOpp > 0 ? "+" : ""}${bestOpp}`,
+        detail: `${scoreLine} • ${diffText}`,
         currentPos: row.current_pos ?? null,
         currentScore: selected,
         thru: row.thru ?? null,
