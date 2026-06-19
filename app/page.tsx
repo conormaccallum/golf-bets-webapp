@@ -185,7 +185,7 @@ export default function HomePage() {
               <table style={{ width: "100%", minWidth: 900, borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
-                    {["Market", "Player", "Opponents", "Book", "Odds", "Stake", "Model", "EV", "Live Status", "Live Detail"].map((h) => (
+                    {["Market", "Player", "Opponents", "Book", "Odds", "Stake", "Live Status", "Live Detail"].map((h) => (
                       <th key={h} style={{ textAlign: "left", padding: 10, borderBottom: "1px solid var(--gb-border-soft)", color: "var(--gb-muted)" }}>{h}</th>
                     ))}
                   </tr>
@@ -199,8 +199,6 @@ export default function HomePage() {
                       <td style={cell}>{b.book || "-"}</td>
                       <td style={cell}>{fmt(b.odds)}</td>
                       <td style={cell}>{fmt(b.stake)}</td>
-                      <td style={cell}>{fmtPct(b.pModel)}</td>
-                      <td style={cell}>{fmtSigned(b.evPerUnit, 3)}</td>
                       <td style={{ ...cell, color: liveColor(b.liveStatus), fontWeight: 800 }}>{b.liveStatus}</td>
                       <td style={{ ...cell, color: "var(--gb-muted)" }}>{b.liveDetail || "-"}</td>
                     </tr>
