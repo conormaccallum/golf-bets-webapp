@@ -26,6 +26,28 @@ async function getMeta(tour: string) {
   return res.json();
 }
 
+function betSignature(input: {
+  market: string | null;
+  playerName: string | null;
+  dgId: string | number | null;
+  odds: number | null;
+  stake: number | null;
+}) {
+  return [
+    (input.market || "").trim().toLowerCase(),
+    (input.playerName || "").trim().toLowerCase(),
+    input.dgId ?? "",
+    input.odds ?? "",
+    input.stake ?? "",
+  ].join("|");
+}
+
+function settledStatus(resultWinFlag: number | null, returnUnits: number | null, liveStatus: string) {
+  if (resultWinFlag === 1) return returnUnits !== null && returnUnits < 0 ? "Settled: DHR" : "Settled: Win";
+  if (resultWinFlag === 0) return "Settled: Loss";
+  return liveStatus;
+}
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -54,10 +76,79 @@ export async function GET(req: Request) {
 
     const placedItems = eventId
       ? await prisma.betslipItem.findMany({
-          where: { tour, eventId, status: "PLACED", archivedAt: null },
+          // Include archived rows too: once a bet is committed to Performance,
+          // archive-placed marks it archived, but it is still a placed bet for the event.
+          where: { tour, eventId, status: "PLACED" },
           orderBy: { createdAt: "asc" },
         })
       : [];
+
+    const currentWeek = eventId
+      ? weeks.find((w) => String(w.eventId) === eventId && w.tour === tour)
+      : null;
+    const performanceBets = currentWeek?.bets ?? [];
+
+    const betslipBySignature = new Map(
+      placedItems.map((b) => [
+        betSignature({
+          market: b.market,
+          playerName: b.playerName,
+          dgId: b.dgId,
+          odds: b.oddsEnteredDec ?? b.marketOddsBestDec,
+          stake: b.stakeUnitsEntered ?? b.stakeUnits,
+        }),
+        b,
+      ])
+    );
+
+    const weeklyRows: any[] = [];
+    const usedBetslipIds = new Set<string>();
+
+    for (const b of performanceBets) {
+      const sig = betSignature({
+        market: b.betType,
+        playerName: b.playerName,
+        dgId: b.dgId,
+        odds: b.marketOddsBestDec,
+        stake: b.stakeUnits,
+      });
+      const slip = betslipBySignature.get(sig);
+      if (slip) usedBetslipIds.add(slip.id);
+      weeklyRows.push({
+        id: `performance-${b.id}`,
+        source: "performance",
+        market: b.betType,
+        playerName: b.playerName,
+        dgId: b.dgId,
+        opponents: slip?.opponents ?? null,
+        book: b.marketBookBest,
+        odds: b.marketOddsBestDec,
+        stake: b.stakeUnits,
+        pModel: b.pModel,
+        evPerUnit: b.evPerUnit,
+        resultWinFlag: b.resultWinFlag,
+        returnUnits: b.returnUnits,
+      });
+    }
+
+    for (const b of placedItems) {
+      if (usedBetslipIds.has(b.id)) continue;
+      weeklyRows.push({
+        id: `betslip-${b.id}`,
+        source: "betslip",
+        market: b.market,
+        playerName: b.playerName,
+        dgId: b.dgId,
+        opponents: b.opponents,
+        book: b.marketBookBest,
+        odds: b.oddsEnteredDec ?? b.marketOddsBestDec,
+        stake: b.stakeUnitsEntered ?? b.stakeUnits,
+        pModel: b.pModel,
+        evPerUnit: b.evPerUnit,
+        resultWinFlag: null,
+        returnUnits: null,
+      });
+    }
 
     const live = await fetchLiveRows(tour);
     const liveLookup = buildLiveLookup(live.rows);
@@ -90,7 +181,7 @@ export async function GET(req: Request) {
       },
       liveError: live.error ?? null,
       liveLastUpdate,
-      weeklyPlaced: placedItems.map((b) => {
+      weeklyPlaced: weeklyRows.map((b) => {
         const liveStatus = statusForBet(
           { market: b.market, playerName: b.playerName, dgId: b.dgId, opponents: b.opponents },
           liveLookup,
@@ -98,16 +189,19 @@ export async function GET(req: Request) {
         );
         return {
           id: b.id,
+          source: b.source,
           market: b.market,
           playerName: b.playerName,
           opponents: b.opponents,
-          book: b.marketBookBest,
-          odds: b.oddsEnteredDec ?? b.marketOddsBestDec,
-          stake: b.stakeUnitsEntered ?? b.stakeUnits,
+          book: b.book,
+          odds: b.odds,
+          stake: b.stake,
           pModel: b.pModel,
           evPerUnit: b.evPerUnit,
-          liveStatus: liveStatus.status,
-          liveDetail: liveStatus.detail,
+          resultWinFlag: b.resultWinFlag,
+          returnUnits: b.returnUnits,
+          liveStatus: settledStatus(b.resultWinFlag, b.returnUnits, liveStatus.status),
+          liveDetail: b.resultWinFlag !== null ? `Return ${Number(b.returnUnits || 0).toFixed(2)}u` : liveStatus.detail,
           liveProb: liveStatus.liveProb,
           currentPos: liveStatus.currentPos,
           currentScore: liveStatus.currentScore,
