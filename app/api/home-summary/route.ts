@@ -67,6 +67,29 @@ function findMatchingSlip(slips: any[], bet: any) {
   }) ?? null;
 }
 
+function projectedReturnUnits(input: {
+  liveStatus: string;
+  stake: number | null;
+  odds: number | null;
+  returnUnits: number | null;
+}) {
+  const status = (input.liveStatus || "").toLowerCase();
+  if (status.includes("settled")) return Number(input.returnUnits) || 0;
+  const stake = Number(input.stake) || 0;
+  const odds = Number(input.odds) || 0;
+  if (!stake || !odds) return null;
+  if (status.includes("winning") || status.includes("likely winning")) return stake * (odds - 1);
+  if (status.includes("losing") || status.includes("likely losing")) return -stake;
+  return null;
+}
+
+function projectedOutcome(liveStatus: string) {
+  const status = (liveStatus || "").toLowerCase();
+  if (status.includes("winning") || status.includes("settled: win") || status.includes("likely winning")) return "win";
+  if (status.includes("losing") || status.includes("settled: loss") || status.includes("likely losing")) return "loss";
+  return "pending";
+}
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -173,6 +196,54 @@ export async function GET(req: Request) {
     const liveLookup = buildLiveLookup(live.rows);
     const liveLastUpdate = live.info?.last_update ?? null;
 
+    const weeklyPlaced = weeklyRows.map((b) => {
+      const liveStatus = statusForBet(
+        { market: b.market, playerName: b.playerName, dgId: b.dgId, opponents: b.opponents },
+        liveLookup,
+        liveLastUpdate
+      );
+      const status = settledStatus(b.resultWinFlag, b.returnUnits, liveStatus.status);
+      const projectedReturn = projectedReturnUnits({
+        liveStatus: status,
+        stake: b.stake,
+        odds: b.odds,
+        returnUnits: b.returnUnits,
+      });
+      const projected = projectedOutcome(status);
+      return {
+        id: b.id,
+        source: b.source,
+        market: b.market,
+        playerName: b.playerName,
+        opponents: b.opponents,
+        book: b.book,
+        odds: b.odds,
+        stake: b.stake,
+        pModel: b.pModel,
+        evPerUnit: b.evPerUnit,
+        resultWinFlag: b.resultWinFlag,
+        returnUnits: b.returnUnits,
+        liveStatus: status,
+        liveDetail: b.resultWinFlag !== null ? `Return ${Number(b.returnUnits || 0).toFixed(2)}u` : liveStatus.detail,
+        liveProb: liveStatus.liveProb,
+        currentPos: liveStatus.currentPos,
+        currentScore: liveStatus.currentScore,
+        thru: liveStatus.thru,
+        round: liveStatus.round,
+        projectedReturnUnits: projectedReturn,
+        projectedOutcome: projected,
+      };
+    });
+
+    const liveProjectionSettled = weeklyPlaced.filter((b) => b.projectedReturnUnits !== null);
+    const liveProjection = {
+      countedBets: liveProjectionSettled.length,
+      pendingBets: weeklyPlaced.length - liveProjectionSettled.length,
+      wins: weeklyPlaced.filter((b) => b.projectedOutcome === "win").length,
+      losses: weeklyPlaced.filter((b) => b.projectedOutcome === "loss").length,
+      pnlUnits: liveProjectionSettled.reduce((acc, b) => acc + (Number(b.projectedReturnUnits) || 0), 0),
+    };
+
     return NextResponse.json({
       ok: true,
       tour,
@@ -200,34 +271,8 @@ export async function GET(req: Request) {
       },
       liveError: live.error ?? null,
       liveLastUpdate,
-      weeklyPlaced: weeklyRows.map((b) => {
-        const liveStatus = statusForBet(
-          { market: b.market, playerName: b.playerName, dgId: b.dgId, opponents: b.opponents },
-          liveLookup,
-          liveLastUpdate
-        );
-        return {
-          id: b.id,
-          source: b.source,
-          market: b.market,
-          playerName: b.playerName,
-          opponents: b.opponents,
-          book: b.book,
-          odds: b.odds,
-          stake: b.stake,
-          pModel: b.pModel,
-          evPerUnit: b.evPerUnit,
-          resultWinFlag: b.resultWinFlag,
-          returnUnits: b.returnUnits,
-          liveStatus: settledStatus(b.resultWinFlag, b.returnUnits, liveStatus.status),
-          liveDetail: b.resultWinFlag !== null ? `Return ${Number(b.returnUnits || 0).toFixed(2)}u` : liveStatus.detail,
-          liveProb: liveStatus.liveProb,
-          currentPos: liveStatus.currentPos,
-          currentScore: liveStatus.currentScore,
-          thru: liveStatus.thru,
-          round: liveStatus.round,
-        };
-      }),
+      liveProjection,
+      weeklyPlaced,
     });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message ?? "Unknown error" }, { status: 500 });

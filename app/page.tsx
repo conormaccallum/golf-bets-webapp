@@ -29,6 +29,13 @@ type HomeSummary = {
   };
   liveError?: string | null;
   liveLastUpdate?: string | null;
+  liveProjection?: {
+    countedBets: number;
+    pendingBets: number;
+    wins: number;
+    losses: number;
+    pnlUnits: number;
+  };
   weeklyPlaced?: Array<{
     id: string;
     market: string;
@@ -46,6 +53,8 @@ type HomeSummary = {
     currentScore?: number | null;
     thru?: number | string | null;
     round?: number | string | null;
+    projectedReturnUnits?: number | null;
+    projectedOutcome?: string;
   }>;
 };
 
@@ -207,6 +216,25 @@ export default function HomePage() {
               </table>
             </div>
           )}
+          {weekly.length > 0 && (
+            <div
+              style={{
+                marginTop: 12,
+                paddingTop: 12,
+                borderTop: "1px solid var(--gb-border-soft)",
+                display: "flex",
+                gap: 18,
+                flexWrap: "wrap",
+                color: "var(--gb-muted)",
+              }}
+            >
+              <b style={{ color: "var(--gb-text)" }}>If finished now</b>
+              <span>P/L: <b style={{ color: liveProjectionColor(data?.liveProjection?.pnlUnits) }}>{fmtSigned(data?.liveProjection?.pnlUnits)}u</b></span>
+              <span>Won/Lost: <b style={{ color: "var(--gb-text)" }}>{data?.liveProjection?.wins ?? 0} / {data?.liveProjection?.losses ?? 0}</b></span>
+              <span>Counted: {data?.liveProjection?.countedBets ?? 0}</span>
+              {(data?.liveProjection?.pendingBets ?? 0) > 0 && <span>Pending/no live data: {data?.liveProjection?.pendingBets}</span>}
+            </div>
+          )}
         </Card>
       </main>
     </div>
@@ -234,5 +262,13 @@ function liveColor(status: string) {
   if (s.includes("winning") || s.includes("win")) return "var(--gb-positive)";
   if (s.includes("losing") || s.includes("loss")) return "#b42335";
   if (s.includes("tied")) return "#9a6a12";
+  return "var(--gb-muted)";
+}
+
+function liveProjectionColor(value: unknown) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "var(--gb-muted)";
+  if (n > 0) return "var(--gb-positive)";
+  if (n < 0) return "#b42335";
   return "var(--gb-muted)";
 }
