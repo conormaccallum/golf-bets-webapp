@@ -75,18 +75,20 @@ function projectedReturnUnits(input: {
 }) {
   const status = (input.liveStatus || "").toLowerCase();
   if (status.includes("settled")) return Number(input.returnUnits) || 0;
+  if (status === "push") return 0;
   const stake = Number(input.stake) || 0;
   const odds = Number(input.odds) || 0;
   if (!stake || !odds) return null;
-  if (status.includes("winning") || status.includes("likely winning")) return stake * (odds - 1);
-  if (status.includes("losing") || status.includes("likely losing")) return -stake;
+  if (status === "won" || status.includes("winning") || status.includes("likely winning")) return stake * (odds - 1);
+  if (status === "lost" || status.includes("losing") || status.includes("likely losing")) return -stake;
   return null;
 }
 
 function projectedOutcome(liveStatus: string) {
   const status = (liveStatus || "").toLowerCase();
-  if (status.includes("winning") || status.includes("settled: win") || status.includes("likely winning")) return "win";
-  if (status.includes("losing") || status.includes("settled: loss") || status.includes("likely losing")) return "loss";
+  if (status === "won" || status.includes("winning") || status.includes("settled: win") || status.includes("likely winning")) return "win";
+  if (status === "lost" || status.includes("losing") || status.includes("settled: loss") || status.includes("likely losing")) return "loss";
+  if (status === "push") return "push";
   return "pending";
 }
 

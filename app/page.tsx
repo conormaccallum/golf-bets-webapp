@@ -259,9 +259,9 @@ const cell = {
 
 function liveColor(status: string) {
   const s = status.toLowerCase();
-  if (s.includes("winning") || s.includes("win")) return "var(--gb-positive)";
-  if (s.includes("losing") || s.includes("loss")) return "#b42335";
-  if (s.includes("tied")) return "#9a6a12";
+  if (s === "won" || s.includes("winning") || s.includes("win")) return "var(--gb-positive)";
+  if (s === "lost" || s.includes("losing") || s.includes("loss")) return "#b42335";
+  if (s === "push" || s.includes("tied")) return "#9a6a12";
   return "var(--gb-muted)";
 }
 

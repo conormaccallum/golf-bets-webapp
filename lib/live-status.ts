@@ -73,6 +73,23 @@ function isLikelyMadeCut(row: LiveRow | null) {
   return null;
 }
 
+function resolvedCutOutcome(row: LiveRow | null) {
+  if (!row) return null;
+  const posRaw = String(row.current_pos ?? "").toLowerCase();
+  if (/(cut|wd|dq|mc)/.test(posRaw)) return false;
+
+  // Once a player has a round 3/4 score, the cut has resolved for them.
+  const round = toNumber(row.round);
+  if (round !== null && round >= 3) return true;
+
+  // Some DataGolf live rows pin make_cut at 0/1 once the cut is mathematically decided.
+  const makeCut = toNumber(row.make_cut);
+  if (makeCut !== null && makeCut >= 0.999) return true;
+  if (makeCut !== null && makeCut <= 0.001) return false;
+
+  return null;
+}
+
 function playerLabel(row: LiveRow | null, fallback = "Opponent") {
   return String(row?.player_name ?? fallback);
 }
@@ -180,35 +197,34 @@ export function statusForBet(
     const selected = toNumber(row.current_score);
     const opponents = findOpponentRows(bet.opponents, lookup);
     const oppScores = opponents.map((o) => toNumber(o.current_score)).filter((v): v is number => v !== null);
-    const selectedMadeCut = isLikelyMadeCut(row);
-    const opponentCutStates = opponents.map((o) => isLikelyMadeCut(o));
-    const anyOpponentMadeCut = opponentCutStates.some((v) => v === true);
-    const allKnownOpponentsMissedCut = opponentCutStates.length > 0 && opponentCutStates.every((v) => v === false);
+    const selectedCutOutcome = resolvedCutOutcome(row);
+    const opponentCutOutcomes = opponents.map((o) => resolvedCutOutcome(o));
+    const anyOpponentMadeCut = opponentCutOutcomes.some((v) => v === true);
+    const allKnownOpponentsMissedCut = opponentCutOutcomes.length > 0 && opponentCutOutcomes.every((v) => v === false);
+    const allCutOutcomesKnown = opponentCutOutcomes.length > 0 && selectedCutOutcome !== null && opponentCutOutcomes.every((v) => v !== null);
     const scoreLine = matchupScoreLine(row, opponents);
+    const base = {
+      available: true,
+      currentPos: row.current_pos ?? null,
+      currentScore: selected,
+      thru: row.thru ?? null,
+      round: row.round ?? null,
+      today: toNumber(row.today),
+      liveProb: null,
+    };
 
-    if (selectedMadeCut === true && allKnownOpponentsMissedCut) {
+    if (selectedCutOutcome === true && allKnownOpponentsMissedCut) {
+      out = { ...base, status: "Won", detail: `${scoreLine} • player made cut, opponent missed cut` };
+    } else if (selectedCutOutcome === false && anyOpponentMadeCut) {
+      out = { ...base, status: "Lost", detail: `${scoreLine} • player missed cut, opponent made cut` };
+    } else if (allCutOutcomesKnown && selectedCutOutcome === false && allKnownOpponentsMissedCut && selected !== null && oppScores.length > 0) {
+      const bestOpp = Math.min(...oppScores);
+      const tied = selected === bestOpp;
+      const won = selected < bestOpp;
       out = {
-        available: true,
-        status: "Currently winning",
-        detail: `${scoreLine} • opponent missed cut`,
-        currentPos: row.current_pos ?? null,
-        currentScore: selected,
-        thru: row.thru ?? null,
-        round: row.round ?? null,
-        today: toNumber(row.today),
-        liveProb: null,
-      };
-    } else if (selectedMadeCut === false && anyOpponentMadeCut) {
-      out = {
-        available: true,
-        status: "Currently losing",
-        detail: `${scoreLine} • player missed cut`,
-        currentPos: row.current_pos ?? null,
-        currentScore: selected,
-        thru: row.thru ?? null,
-        round: row.round ?? null,
-        today: toNumber(row.today),
-        liveProb: null,
+        ...base,
+        status: tied ? "Push" : won ? "Won" : "Lost",
+        detail: `${scoreLine} • all missed cut, ${tied ? "level" : won ? "player better at cut" : "opponent better at cut"}`,
       };
     } else if (selected === null || oppScores.length === 0) {
       out = { available: true, status: "Live scores pending", detail: scoreLine || scoreText(row) };
@@ -219,24 +235,20 @@ export function statusForBet(
       const tied = diff === 0;
       const diffText = tied ? "level" : `${Math.abs(diff)} ${currentlyWinning ? "ahead" : "behind"}`;
       out = {
-        available: true,
+        ...base,
         status: tied ? "Currently tied" : currentlyWinning ? "Currently winning" : "Currently losing",
         detail: `${scoreLine} • ${diffText}`,
-        currentPos: row.current_pos ?? null,
-        currentScore: selected,
-        thru: row.thru ?? null,
-        round: row.round ?? null,
-        today: toNumber(row.today),
-        liveProb: null,
       };
     }
   } else if (market.includes("miss cut")) {
     const makeCut = toNumber(row.make_cut);
     const missCut = makeCut === null ? null : 1 - makeCut;
+    const cutOutcome = resolvedCutOutcome(row);
+    const won = cutOutcome === false;
     out = {
       available: true,
-      status: missCut !== null && missCut >= 0.5 ? "Likely winning" : "Likely losing",
-      detail: `Miss cut ${pct(missCut)}${scoreText(row) ? ` • ${scoreText(row)}` : ""}`,
+      status: cutOutcome === null ? (missCut !== null && missCut >= 0.5 ? "Likely winning" : "Likely losing") : won ? "Won" : "Lost",
+      detail: `${cutOutcome === null ? `Miss cut ${pct(missCut)}` : won ? "Missed cut" : "Made cut"}${scoreText(row) ? ` • ${scoreText(row)}` : ""}`,
       currentPos: row.current_pos ?? null,
       currentScore: toNumber(row.current_score),
       thru: row.thru ?? null,
@@ -246,10 +258,12 @@ export function statusForBet(
     };
   } else if (market.includes("make cut")) {
     const makeCut = toNumber(row.make_cut);
+    const cutOutcome = resolvedCutOutcome(row);
+    const won = cutOutcome === true;
     out = {
       available: true,
-      status: makeCut !== null && makeCut >= 0.5 ? "Likely winning" : "Likely losing",
-      detail: `Make cut ${pct(makeCut)}${scoreText(row) ? ` • ${scoreText(row)}` : ""}`,
+      status: cutOutcome === null ? (makeCut !== null && makeCut >= 0.5 ? "Likely winning" : "Likely losing") : won ? "Won" : "Lost",
+      detail: `${cutOutcome === null ? `Make cut ${pct(makeCut)}` : won ? "Made cut" : "Missed cut"}${scoreText(row) ? ` • ${scoreText(row)}` : ""}`,
       currentPos: row.current_pos ?? null,
       currentScore: toNumber(row.current_score),
       thru: row.thru ?? null,
