@@ -78,16 +78,7 @@ function fmtPct(n: unknown) {
 
 function isSettledHomeBet(b: NonNullable<HomeSummary["weeklyPlaced"]>[number]) {
   const status = (b.liveStatus || "").toLowerCase();
-  const outcome = (b.projectedOutcome || "").toLowerCase();
-  return (
-    outcome === "win" ||
-    outcome === "loss" ||
-    outcome === "push" ||
-    status === "won" ||
-    status === "lost" ||
-    status === "push" ||
-    status.includes("settled")
-  );
+  return status === "won" || status === "lost" || status === "push" || status.includes("settled");
 }
 
 function liveWinSortProb(b: NonNullable<HomeSummary["weeklyPlaced"]>[number]) {
