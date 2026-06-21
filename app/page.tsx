@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { HeaderNav, Button, Card } from "./components/ui";
 
 type HomeSummary = {
@@ -76,6 +76,31 @@ function fmtPct(n: unknown) {
   return `${(v * 100).toFixed(1)}%`;
 }
 
+function isSettledHomeBet(b: NonNullable<HomeSummary["weeklyPlaced"]>[number]) {
+  const status = (b.liveStatus || "").toLowerCase();
+  const outcome = (b.projectedOutcome || "").toLowerCase();
+  return (
+    outcome === "win" ||
+    outcome === "loss" ||
+    outcome === "push" ||
+    status === "won" ||
+    status === "lost" ||
+    status === "push" ||
+    status.includes("settled")
+  );
+}
+
+function liveWinSortProb(b: NonNullable<HomeSummary["weeklyPlaced"]>[number]) {
+  const p = Number(b.liveProb);
+  if (Number.isFinite(p)) return p;
+
+  const status = (b.liveStatus || "").toLowerCase();
+  if (status === "won" || status.includes("winning")) return 0.75;
+  if (status === "push" || status.includes("tied")) return 0.5;
+  if (status === "lost" || status.includes("losing")) return 0.25;
+  return -1;
+}
+
 export default function HomePage() {
   const [tour, setTour] = useState<"pga" | "dp">("pga");
   const [data, setData] = useState<HomeSummary | null>(null);
@@ -122,7 +147,13 @@ export default function HomePage() {
   }, [tour]);
 
   const ytd = data?.ytd;
-  const weekly = data?.weeklyPlaced ?? [];
+  const weekly = useMemo(() => {
+    return [...(data?.weeklyPlaced ?? [])].sort((a, b) => {
+      const settledDiff = Number(isSettledHomeBet(a)) - Number(isSettledHomeBet(b));
+      if (settledDiff !== 0) return settledDiff;
+      return liveWinSortProb(b) - liveWinSortProb(a);
+    });
+  }, [data?.weeklyPlaced]);
   const eventTitle = data?.meta?.eventName
     ? `${data.meta.eventName} ${data.meta.eventYear ?? ""}`
     : "Current event unavailable";
