@@ -13,6 +13,7 @@ function sum(nums: any[]) {
 function formatOutcome(b: any) {
   if (b.resultWinFlag === null) return "";
   if (b.resultWinFlag === 0) return "Loss";
+  if (Number(b.returnUnits) === 0) return "Push";
 
   const bt = (b.betType ?? "").toLowerCase();
   const isTop20 = bt.includes("top 20") || bt.includes("top20");
@@ -153,7 +154,7 @@ export default async function PerformancePage() {
                     <tbody>
                       {sortedBets.map((b: any, i: number) => {
                         let rowBg = i % 2 === 0 ? "var(--gb-surface)" : "#f1dfe4";
-                        if (b.resultWinFlag === 1) rowBg = "#2fa66a";
+                        if (b.resultWinFlag === 1) rowBg = Number(b.returnUnits) === 0 ? "#d7b85a" : "#2fa66a";
                         if (b.resultWinFlag === 0) rowBg = "#e15b64";
                         const cellStyle = {
                           padding: 10,

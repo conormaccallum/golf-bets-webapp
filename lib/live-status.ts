@@ -166,17 +166,30 @@ function finishStatus(row: LiveRow, target: "win" | "top_5" | "top_10" | "top_20
   const marketTarget = target === "win" ? 1 : Number(target.split("_")[1]);
   const pos = parsePosition(row.current_pos);
   const prob = toNumber(row[target]);
-  const currentlyWinning = pos !== null && pos <= marketTarget;
-  return {
+  const cutOutcome = resolvedCutOutcome(row);
+  const base = {
     available: true,
-    status: currentlyWinning ? "Currently winning" : "Currently losing",
-    detail: `${target.replace("_", " ").toUpperCase()} ${pct(prob)}${scoreText(row) ? ` • ${scoreText(row)}` : ""}`,
     currentPos: row.current_pos ?? null,
     currentScore: toNumber(row.current_score),
     thru: row.thru ?? null,
     round: row.round ?? null,
     today: toNumber(row.today),
     liveProb: prob,
+  };
+
+  if (target === "top_20" && cutOutcome === false) {
+    return {
+      ...base,
+      status: "Lost",
+      detail: `Missed cut${scoreText(row) ? ` • ${scoreText(row)}` : ""}`,
+    };
+  }
+
+  const currentlyWinning = pos !== null && pos <= marketTarget;
+  return {
+    ...base,
+    status: currentlyWinning ? "Currently winning" : "Currently losing",
+    detail: `${target.replace("_", " ").toUpperCase()} ${pct(prob)}${scoreText(row) ? ` • ${scoreText(row)}` : ""}`,
   };
 }
 

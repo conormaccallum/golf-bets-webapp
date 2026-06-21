@@ -24,6 +24,8 @@ function outcomeLabel(params: {
 
   if (resultWinFlag === 0) return "Loss";
 
+  if (returnUnits !== null && returnUnits !== undefined && approxEqual(Number(returnUnits), 0)) return "Push";
+
   if (isTop20(betType)) {
     const stake = Number(stakeUnits);
     const odds = Number(oddsDec);
@@ -97,6 +99,18 @@ export default function ManualSettleButtons(props: {
     window.location.reload();
   }
 
+  async function settlePush() {
+    setLoading(true);
+
+    await fetch("/api/settle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ betId, isPush: true, deadHeatFrac: null }),
+    });
+
+    window.location.reload();
+  }
+
   async function undo() {
     setLoading(true);
 
@@ -130,6 +144,25 @@ export default function ManualSettleButtons(props: {
           }}
         >
           Win
+        </button>
+
+        <span style={{ color: "#666", margin: "0 8px" }}>|</span>
+
+        <button
+          onClick={settlePush}
+          disabled={loading}
+          style={{
+            background: "none",
+            border: "none",
+            color: loading ? "#666" : "#d4a017",
+            textDecoration: "underline",
+            cursor: loading ? "not-allowed" : "pointer",
+            padding: 0,
+            margin: 0,
+            fontWeight: 700,
+          }}
+        >
+          Push
         </button>
 
         <span style={{ color: "#666", margin: "0 8px" }}>|</span>

@@ -6,8 +6,10 @@ function calcReturnUnits(
   stake: number,
   odds: number | null,
   isWin: boolean,
-  deadHeatFrac: number | null
+  deadHeatFrac: number | null,
+  isPush = false
 ): number | null {
+  if (isPush) return 0;
   if (!isWin) return -stake;
   if (odds === null) return null;
 
@@ -25,7 +27,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     const betId = Number(req.body?.betId);
-    const isWin = Boolean(req.body?.isWin);
+    const isPush = Boolean(req.body?.isPush);
+    const isWin = isPush ? true : Boolean(req.body?.isWin);
     const deadHeatFrac = req.body?.deadHeatFrac === null ? null : Number(req.body?.deadHeatFrac);
 
     if (!Number.isFinite(betId)) return res.status(400).json({ ok: false, error: "Invalid betId" });
@@ -38,7 +41,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const stake = Number(bet.stakeUnits ?? 0);
     const odds = bet.marketOddsBestDec ?? null;
 
-    const ret = calcReturnUnits(bet.betType, stake, odds, isWin, deadHeatFrac);
+    const ret = calcReturnUnits(bet.betType, stake, odds, isWin, deadHeatFrac, isPush);
 
     await prisma.bet.update({
       where: { id: betId },

@@ -43,7 +43,10 @@ function betSignature(input: {
 }
 
 function settledStatus(resultWinFlag: number | null, returnUnits: number | null, liveStatus: string) {
-  if (resultWinFlag === 1) return returnUnits !== null && returnUnits < 0 ? "Settled: DHR" : "Settled: Win";
+  if (resultWinFlag === 1) {
+    if (returnUnits !== null && Number(returnUnits) === 0) return "Settled: Push";
+    return returnUnits !== null && returnUnits < 0 ? "Settled: DHR" : "Settled: Win";
+  }
   if (resultWinFlag === 0) return "Settled: Loss";
   return liveStatus;
 }
@@ -88,7 +91,7 @@ function projectedOutcome(liveStatus: string) {
   const status = (liveStatus || "").toLowerCase();
   if (status === "won" || status.includes("winning") || status.includes("settled: win") || status.includes("likely winning")) return "win";
   if (status === "lost" || status.includes("losing") || status.includes("settled: loss") || status.includes("likely losing")) return "loss";
-  if (status === "push") return "push";
+  if (status === "push" || status.includes("settled: push")) return "push";
   return "pending";
 }
 
@@ -110,7 +113,7 @@ export async function GET(req: Request) {
 
     const allBets = weeks.flatMap((w) => w.bets.map((b) => ({ ...b, week: w })));
     const settled = allBets.filter((b) => b.resultWinFlag !== null);
-    const won = settled.filter((b) => b.resultWinFlag === 1).length;
+    const won = settled.filter((b) => b.resultWinFlag === 1 && Number(b.returnUnits) !== 0).length;
     const lost = settled.filter((b) => b.resultWinFlag === 0).length;
     const pnl = allBets.reduce((acc, b) => acc + (Number(b.returnUnits) || 0), 0);
     const staked = allBets.reduce((acc, b) => acc + (Number(b.stakeUnits) || 0), 0);
