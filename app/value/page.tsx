@@ -30,9 +30,7 @@ type DisplayRow = {
   evPerUnit: number | null;
   dgId: string | null;
   marketLabel: string;
-  strategyName: string;
-  strategyTier: string;
-  qualified: boolean;
+  qualified: boolean | null;
 };
 
 function toNumber(x: unknown): number | null {
@@ -83,13 +81,6 @@ function marketLabel(market: Market): string {
   return "Miss Cut";
 }
 
-function strategyNote(market: Market): string {
-  if (market === "miss_cut") return "Tier 1 core: DataGolf miss-cut EV >= 15%, odds <= 10. Around-green weakness upgrades confidence only.";
-  if (market === "make_cut") return "Tier 2 candidate: make-cut EV >= 7.5%, odds <= 3, using the tested putting overlay.";
-  if (market === "top10") return "Tier 2: Top 10 current-price EV >= 20%, odds <= 10, using the putting overlay.";
-  return "Tier 3 experimental: Top 20 EV >= 25%, odds <= 15, using the OTT overlay.";
-}
-
 function makeUniqueKey(input: {
   tour: string;
   eventId: string;
@@ -119,8 +110,6 @@ function buildDisplayRows(raw: TableData | null, market: Market): DisplayRow[] {
   const idxMarketProb = pickIndex(h, ["market_prob_best", "market_prob", "implied_prob"]);
   const idxEdge = pickIndex(h, ["edge_prob", "edge"]);
   const idxEv = pickIndex(h, ["ev_per_unit", "ev"]);
-  const idxStrategyName = pickIndex(h, ["strategy_name", "strategy"]);
-  const idxStrategyTier = pickIndex(h, ["strategy_tier", "tier", "confidence"]);
   const idxQualified = pickIndex(h, ["strategy_qualified", "bet_flag"]);
 
   const idxModelProb =
@@ -146,8 +135,8 @@ function buildDisplayRows(raw: TableData | null, market: Market): DisplayRow[] {
           : modelProb !== null && odds !== null && odds > 1
           ? modelProb * (odds - 1) - (1 - modelProb)
           : null;
-      const qualifiedRaw = idxQualified >= 0 ? String(r[idxQualified] ?? "").toLowerCase() : "";
-      const qualified = ["true", "1", "yes"].includes(qualifiedRaw);
+      const qualifiedRaw = idxQualified >= 0 ? String(r[idxQualified] ?? "").trim().toLowerCase() : "";
+      const qualified = idxQualified >= 0 ? ["true", "1", "yes"].includes(qualifiedRaw) : null;
       return {
         playerName: idxPlayer >= 0 ? r[idxPlayer] ?? "" : "",
         opponents: idxOpp >= 0 ? r[idxOpp] ?? "" : "",
@@ -159,8 +148,6 @@ function buildDisplayRows(raw: TableData | null, market: Market): DisplayRow[] {
         evPerUnit,
         dgId: idxDgId >= 0 && r[idxDgId] ? String(r[idxDgId]) : null,
         marketLabel: marketLabel(market),
-        strategyName: idxStrategyName >= 0 ? r[idxStrategyName] ?? "" : strategyNote(market),
-        strategyTier: idxStrategyTier >= 0 ? r[idxStrategyTier] ?? "" : "Research",
         qualified,
       };
     })
@@ -277,7 +264,11 @@ export default function ValueScreensPage() {
         const hay = `${row.playerName} ${row.opponents} ${row.book}`.toLowerCase();
         if (!hay.includes(q)) return false;
       }
-      if (onlyValue && (row.evPerUnit ?? -999) <= evFloor) return false;
+      if (onlyValue) {
+        if (row.qualified === false) return false;
+        if (row.qualified === null && (row.evPerUnit ?? -999) <= evFloor) return false;
+        if (row.qualified === true && minEv.trim() !== "" && (row.evPerUnit ?? -999) <= evFloor) return false;
+      }
       return true;
     });
   }, [rows, search, minEv, onlyValue, metricView]);
@@ -388,12 +379,7 @@ export default function ValueScreensPage() {
           </span>
         </div>
 
-        <div style={{ marginBottom: 12, display: "grid", gap: 8 }}>
-          <div style={{ border: "1px solid var(--gb-border)", background: "var(--gb-surface)", borderRadius: 14, padding: 12, color: "var(--gb-muted)" }}>
-            <strong style={{ color: "var(--gb-text)" }}>{marketLabel(market)} strategy:</strong> {strategyNote(market)}
-          </div>
-          <div style={{ color: "var(--gb-muted)" }}>Showing {filteredRows.length} of {rows.length} rows</div>
-        </div>
+        <div style={{ marginBottom: 12, color: "var(--gb-muted)" }}>Showing {filteredRows.length} of {rows.length} rows</div>
 
         {error && <div style={{ marginBottom: 12, color: "#ff7a7a" }}>{error}</div>}
 
@@ -403,10 +389,10 @@ export default function ValueScreensPage() {
           </div>
         ) : (
           <div className="gb-table-scroll gb-mobile-card-table">
-            <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 1100 }}>
+            <table style={{ borderCollapse: "collapse", width: "100%", minWidth: 900 }}>
               <thead>
                 <tr>
-                  {["Player", "Strategy", "Tier", "Odds", "Book", "Market %", "Model %", metricView === "edge" ? "Edge" : "EV / Unit", ""].map((hh) => (
+                  {["Player", "Odds", "Book", "Market %", "Model %", metricView === "edge" ? "Edge" : "EV / Unit", ""].map((hh) => (
                     <th key={hh} style={{ textAlign: "left", padding: 10, borderBottom: "1px solid var(--gb-border)", background: "var(--gb-surface)", color: "var(--gb-text)", whiteSpace: "nowrap" }}>
                       {hh}
                     </th>
@@ -430,8 +416,6 @@ export default function ValueScreensPage() {
                   return (
                     <tr key={rowId + i} style={{ background: i % 2 === 0 ? "var(--gb-bg)" : "var(--gb-row-alt)" }}>
                       <td data-label="Player" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{row.playerName}</td>
-                      <td data-label="Strategy" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", minWidth: 220 }}>{row.strategyName}</td>
-                      <td data-label="Tier" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap", color: row.qualified ? "var(--gb-positive)" : "var(--gb-muted)", fontWeight: row.qualified ? 700 : 500 }}>{row.strategyTier}</td>
                       <td data-label="Odds" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{formatOdds(row.odds)}</td>
                       <td data-label="Book" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{row.book}</td>
                       <td data-label="Market %" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{formatPct(row.marketProb)}</td>
