@@ -18,6 +18,7 @@ type RunResponse = {
     matchup3?: TableData | null;
   };
   betslipKeys?: string[];
+  placedBetslipKeys?: string[];
 };
 type DisplayRow = {
   playerName: string;
@@ -240,6 +241,7 @@ export default function ValueScreensPage() {
   }, [tour]);
 
   const betslipKeySet = useMemo(() => new Set(data?.betslipKeys ?? []), [data]);
+  const placedBetslipKeySet = useMemo(() => new Set(data?.placedBetslipKeys ?? []), [data]);
 
   const rawTable = useMemo(() => {
     if (!data?.tables) return null;
@@ -284,7 +286,11 @@ export default function ValueScreensPage() {
       opponents: row.opponents,
     });
     if (betslipKeySet.has(uniqueKey)) {
-      setError("That bet is already in the betslip.");
+      setError("That bet is already in the active betslip.");
+      return;
+    }
+    if (placedBetslipKeySet.has(uniqueKey)) {
+      setError("Potential duplicate: this exact bet has already been marked placed for this event.");
       return;
     }
     setAddingId(rowId);
@@ -313,6 +319,13 @@ export default function ValueScreensPage() {
     } finally {
       setAddingId(null);
     }
+  }
+
+  function addButtonLabel(rowId: string, alreadyAdded: boolean, alreadyPlaced: boolean) {
+    if (addingId === rowId) return "Adding...";
+    if (alreadyAdded) return "Added";
+    if (alreadyPlaced) return "Already placed";
+    return "Add to Betslip";
   }
 
   return (
@@ -411,6 +424,7 @@ export default function ValueScreensPage() {
                     opponents: row.opponents,
                   });
                   const alreadyAdded = betslipKeySet.has(uniqueKey);
+                  const alreadyPlaced = placedBetslipKeySet.has(uniqueKey);
                   const isValue = (row.evPerUnit ?? -999) > 0;
                   const metricValue = metricView === "edge" ? formatEdge(row.edge) : formatEv(row.evPerUnit);
                   return (
@@ -424,8 +438,8 @@ export default function ValueScreensPage() {
                         {metricValue}
                       </td>
                       <td data-label="" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>
-                        <Button onClick={() => addToBetslip(row)} disabled={addingId === rowId || alreadyAdded}>
-                          {addingId === rowId ? "Adding..." : alreadyAdded ? "Added" : "Add to Betslip"}
+                        <Button onClick={() => addToBetslip(row)} disabled={addingId === rowId || alreadyAdded || alreadyPlaced}>
+                          {addButtonLabel(rowId, alreadyAdded, alreadyPlaced)}
                         </Button>
                       </td>
                     </tr>

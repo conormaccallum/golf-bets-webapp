@@ -43,7 +43,10 @@ function normalizeMarketName(name: string) {
 async function getMeta(tour: string) {
   const res = await fetchFromOutputs(tour, "event_meta.json");
   if (!res.ok) throw new Error("event_meta.json not found");
-  return res.json();
+  const meta = await res.json();
+  const metaTour = meta?.tour ? normalizeTour(meta.tour) : tour;
+  if (metaTour !== tour) throw new Error(`event_meta.json is for ${metaTour}, not ${tour}`);
+  return meta;
 }
 
 function makeUniqueKey(input: {
@@ -395,11 +398,11 @@ export async function GET(req: Request) {
     if (sync) {
       await syncPendingFromOutputs();
     }
+    const meta = await getMeta(tour);
     const items = await prisma.betslipItem.findMany({
-      where: { tour },
+      where: { tour, eventId: String(meta.eventId), archivedAt: null },
       orderBy: [{ status: "asc" }, { createdAt: "asc" }],
     });
-    const meta = await getMeta(tour);
     return NextResponse.json({
       ok: true,
       meta,
@@ -433,13 +436,27 @@ export async function POST(req: Request) {
       opponents: body.opponents || null,
     });
 
-    await prisma.betslipItem.upsert({
-      where: { uniqueKey },
-      update: {},
-      create: {
+    const existing = await prisma.betslipItem.findUnique({ where: { uniqueKey } });
+    if (existing) {
+      const alreadyPlaced = existing.status === "PLACED" || existing.archivedAt !== null;
+      return NextResponse.json(
+        {
+          ok: false,
+          duplicate: true,
+          duplicateStatus: alreadyPlaced ? "PLACED" : "PENDING",
+          error: alreadyPlaced
+            ? "Potential duplicate: this exact bet has already been marked placed for this event."
+            : "That bet is already in the active betslip.",
+        },
+        { status: 409 }
+      );
+    }
+
+    await prisma.betslipItem.create({
+      data: {
         uniqueKey,
         tour,
-        eventId: meta.eventId,
+        eventId: String(meta.eventId),
         eventName: meta.eventName,
         eventYear: meta.eventYear,
         market: body.market,
@@ -454,7 +471,7 @@ export async function POST(req: Request) {
       },
     });
 
-    await recalcPending(tour, meta.eventId);
+    await recalcPending(tour, String(meta.eventId));
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "failed" }, { status: 500 });

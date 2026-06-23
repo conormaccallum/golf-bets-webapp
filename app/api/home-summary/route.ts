@@ -11,19 +11,14 @@ function normalizeTour(input: string | null | undefined) {
   return "pga";
 }
 
-async function fetchFromOutputs(tour: string, name: string): Promise<Response> {
-  const primary = `${OUTPUT_BASE}/${tour}/${name}?t=${Date.now()}`;
-  const fallback = `${OUTPUT_BASE}/${name}?t=${Date.now()}`;
-  const res = await fetch(primary, { cache: "no-store" });
-  if (res.ok || res.status !== 404) return res;
-  const res2 = await fetch(fallback, { cache: "no-store" });
-  return res2.ok ? res2 : res;
-}
-
 async function getMeta(tour: string) {
-  const res = await fetchFromOutputs(tour, "event_meta.json");
+  // Home should describe the current tour output only. Falling back to the
+  // flat legacy file can show last week's event after a new tour run.
+  const res = await fetch(`${OUTPUT_BASE}/${tour}/event_meta.json?t=${Date.now()}`, { cache: "no-store" });
   if (!res.ok) return null;
-  return res.json();
+  const meta = await res.json();
+  const metaTour = meta?.tour ? normalizeTour(meta.tour) : tour;
+  return metaTour === tour ? meta : null;
 }
 
 function betSignature(input: {

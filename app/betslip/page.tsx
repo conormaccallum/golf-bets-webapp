@@ -282,7 +282,7 @@ export default function BetslipPage() {
 
         <div style={{ height: 6 }} />
         <div style={{ color: "#c9a97a", fontSize: 12 }}>
-          Only commit when all bets are placed. Committing does not clear the betslip.
+          Only commit when all bets are placed. Committing moves placed bets to Performance and clears them from the active betslip.
         </div>
 
         <div style={{ height: 12 }} />

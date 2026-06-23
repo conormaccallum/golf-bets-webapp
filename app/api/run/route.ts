@@ -106,9 +106,15 @@ export async function POST(req: Request) {
 
     const prisma = getPrisma();
     const betslipItems = await prisma.betslipItem.findMany({
-      where: { eventId: eventMeta.eventId, tour },
-      select: { uniqueKey: true },
+      where: { eventId: String(eventMeta.eventId), tour },
+      select: { uniqueKey: true, status: true, archivedAt: true },
     });
+    const activeBetslipKeys = betslipItems
+      .filter((b) => b.archivedAt === null && b.status === "PENDING")
+      .map((b) => b.uniqueKey);
+    const placedBetslipKeys = betslipItems
+      .filter((b) => b.status === "PLACED" || b.archivedAt !== null)
+      .map((b) => b.uniqueKey);
 
     return NextResponse.json({
       ok: true,
@@ -124,7 +130,8 @@ export async function POST(req: Request) {
         matchup2: parseCsv(matchup2Csv),
         matchup3: parseCsv(matchup3Csv),
       },
-      betslipKeys: betslipItems.map((b) => b.uniqueKey),
+      betslipKeys: activeBetslipKeys,
+      placedBetslipKeys,
       generatedAt: new Date().toISOString(),
     });
   } catch (e: any) {

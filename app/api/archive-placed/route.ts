@@ -39,6 +39,15 @@ async function fetchFromOutputs(tour: string, name: string): Promise<Response> {
   return res2.ok ? res2 : res;
 }
 
+async function getMeta(tour: string) {
+  const res = await fetchFromOutputs(tour, "event_meta.json");
+  if (!res.ok) throw new Error("event_meta.json not found");
+  const meta = await res.json();
+  const metaTour = meta?.tour ? normalizeTour(meta.tour) : tour;
+  if (metaTour !== tour) throw new Error(`event_meta.json is for ${metaTour}, not ${tour}`);
+  return meta;
+}
+
 export async function POST(req: Request) {
   const auth = req.headers.get("authorization") || "";
   const manual = req.headers.get("x-archive-manual") === "true";
@@ -51,16 +60,18 @@ export async function POST(req: Request) {
     const prisma = getPrisma();
     const url = new URL(req.url);
     const tour = normalizeTour(url.searchParams.get("tour") || DEFAULT_TOUR);
+    const meta = await getMeta(tour);
+    const eventId = String(meta.eventId);
     let placed = await prisma.betslipItem.findMany({
-      where: { tour, status: "PLACED", archivedAt: null },
+      where: { tour, eventId, status: "PLACED", archivedAt: null },
       orderBy: [{ eventYear: "desc" }, { eventName: "asc" }, { createdAt: "asc" }],
     });
 
-    // Manual archive acts as a repair path too: rebuild weeks from existing placed bets
-    // even if those rows were already marked archived by an earlier broken run.
+    // Manual archive acts as a repair path too: rebuild the current event from
+    // existing placed bets even if those rows were already archived earlier.
     if (placed.length === 0 && manual) {
       placed = await prisma.betslipItem.findMany({
-        where: { tour, status: "PLACED" },
+        where: { tour, eventId, status: "PLACED" },
         orderBy: [{ eventYear: "desc" }, { eventName: "asc" }, { createdAt: "asc" }],
       });
     }
@@ -156,15 +167,15 @@ export async function POST(req: Request) {
     }
 
     if (clearAfter) {
-      await prisma.betslipItem.deleteMany({ where: { tour, status: "PLACED", archivedAt: null } });
+      await prisma.betslipItem.deleteMany({ where: { tour, eventId, status: "PLACED", archivedAt: null } });
     } else if (!manual) {
       await prisma.betslipItem.updateMany({
-        where: { tour, status: "PLACED", archivedAt: null },
+        where: { tour, eventId, status: "PLACED", archivedAt: null },
         data: { archivedAt: new Date() },
       });
     } else {
       await prisma.betslipItem.updateMany({
-        where: { tour, status: "PLACED", archivedAt: null },
+        where: { tour, eventId, status: "PLACED", archivedAt: null },
         data: { archivedAt: new Date() },
       });
     }
