@@ -8,7 +8,7 @@ type TableData = { headers: string[]; rows: string[][] };
 type RunResponse = {
   ok?: boolean;
   error?: string;
-  meta?: { eventId?: string; refreshLockDay?: string };
+  meta?: { eventId?: string; eventName?: string; eventYear?: number; refreshLockDay?: string };
   tables?: {
     top10?: TableData | null;
     top20?: TableData | null;
@@ -252,6 +252,10 @@ export default function ValueScreensPage() {
   }, [data, market]);
 
   const rows = useMemo(() => buildDisplayRows(rawTable, market), [rawTable, market]);
+  const hasAnyBookOdds = useMemo(() => rows.some((r) => r.odds !== null && r.book.trim() !== ""), [rows]);
+  const eventTitle = data?.meta?.eventName
+    ? `${data.meta.eventName} ${data.meta.eventYear ?? ""}`.trim()
+    : "Current event unavailable";
 
   const filteredRows = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -392,7 +396,15 @@ export default function ValueScreensPage() {
           </span>
         </div>
 
+        <div style={{ marginBottom: 6, color: "var(--gb-muted)" }}>Event: {eventTitle}</div>
         <div style={{ marginBottom: 12, color: "var(--gb-muted)" }}>Showing {filteredRows.length} of {rows.length} rows</div>
+
+        {rows.length > 0 && !hasAnyBookOdds && (
+          <div style={{ marginBottom: 12, border: "1px solid var(--gb-border)", borderRadius: 14, padding: 12, background: "var(--gb-surface)", color: "var(--gb-muted)" }}>
+            No bookmaker odds are available in the latest output for {marketLabel(market)} on {eventTitle}.
+            The model probabilities are present, but the app will not let you add bets until the output includes odds/book data.
+          </div>
+        )}
 
         {error && <div style={{ marginBottom: 12, color: "#ff7a7a" }}>{error}</div>}
 
@@ -425,6 +437,7 @@ export default function ValueScreensPage() {
                   });
                   const alreadyAdded = betslipKeySet.has(uniqueKey);
                   const alreadyPlaced = placedBetslipKeySet.has(uniqueKey);
+                  const missingOdds = row.odds === null || !row.book.trim() || row.modelProb === null;
                   const isValue = (row.evPerUnit ?? -999) > 0;
                   const metricValue = metricView === "edge" ? formatEdge(row.edge) : formatEv(row.evPerUnit);
                   return (
@@ -438,8 +451,8 @@ export default function ValueScreensPage() {
                         {metricValue}
                       </td>
                       <td data-label="" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>
-                        <Button onClick={() => addToBetslip(row)} disabled={addingId === rowId || alreadyAdded || alreadyPlaced}>
-                          {addButtonLabel(rowId, alreadyAdded, alreadyPlaced)}
+                        <Button onClick={() => addToBetslip(row)} disabled={addingId === rowId || alreadyAdded || alreadyPlaced || missingOdds}>
+                          {missingOdds ? "No odds" : addButtonLabel(rowId, alreadyAdded, alreadyPlaced)}
                         </Button>
                       </td>
                     </tr>
