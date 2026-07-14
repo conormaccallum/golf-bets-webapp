@@ -126,6 +126,32 @@ export async function fetchLiveRows(tour: string): Promise<{ rows: LiveRow[]; in
   return { rows, info: json?.info ?? null };
 }
 
+
+function normalizeEventName(name: string | null | undefined) {
+  return (name || "")
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/&/g, "and")
+    .replace(/[^a-z0-9 ]/g, " ")
+    .replace(/\b(the|championship|open|presented|by)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function liveFeedMatchesEvent(info: any | null, eventName: string | null | undefined) {
+  const liveName = normalizeEventName(info?.event_name);
+  const currentName = normalizeEventName(eventName);
+  if (!liveName || !currentName) return false;
+  return liveName === currentName || liveName.includes(currentName) || currentName.includes(liveName);
+}
+
+export function staleLiveFeedMessage(info: any | null, eventName: string | null | undefined) {
+  const liveName = String(info?.event_name || "previous event");
+  const currentName = String(eventName || "current event");
+  return `Live scoring not started for ${currentName}. DataGolf is still showing ${liveName}.`;
+}
+
 export function buildLiveLookup(rows: LiveRow[]) {
   const byDgId = new Map<string, LiveRow>();
   const byName = new Map<string, LiveRow>();

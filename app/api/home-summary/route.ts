@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
-import { buildLiveLookup, fetchLiveRows, statusForBet } from "@/lib/live-status";
+import { buildLiveLookup, fetchLiveRows, liveFeedMatchesEvent, staleLiveFeedMessage, statusForBet } from "@/lib/live-status";
 
 const OUTPUT_BASE = process.env.OUTPUT_BASE_URL || "";
 
@@ -195,15 +195,21 @@ export async function GET(req: Request) {
     }
 
     const live = await fetchLiveRows(tour);
-    const liveLookup = buildLiveLookup(live.rows);
-    const liveLastUpdate = live.info?.last_update ?? null;
+    const liveMatchesCurrentEvent = !live.error && liveFeedMatchesEvent(live.info, meta?.eventName);
+    const staleLiveMessage = !live.error && !liveMatchesCurrentEvent
+      ? staleLiveFeedMessage(live.info, meta?.eventName)
+      : null;
+    const liveLookup = buildLiveLookup(liveMatchesCurrentEvent ? live.rows : []);
+    const liveLastUpdate = liveMatchesCurrentEvent ? live.info?.last_update ?? null : null;
 
     const weeklyPlaced = weeklyRows.map((b) => {
-      const liveStatus = statusForBet(
-        { market: b.market, playerName: b.playerName, dgId: b.dgId, opponents: b.opponents },
-        liveLookup,
-        liveLastUpdate
-      );
+      const liveStatus = staleLiveMessage
+        ? { available: false, status: "Live scoring not started", detail: staleLiveMessage, liveProb: null, currentPos: null, currentScore: null, thru: null, round: null }
+        : statusForBet(
+            { market: b.market, playerName: b.playerName, dgId: b.dgId, opponents: b.opponents },
+            liveLookup,
+            liveLastUpdate
+          );
       const status = settledStatus(b.resultWinFlag, b.returnUnits, liveStatus.status);
       const projectedReturn = projectedReturnUnits({
         liveStatus: status,
@@ -272,7 +278,7 @@ export async function GET(req: Request) {
             }
           : null,
       },
-      liveError: live.error ?? null,
+      liveError: live.error ?? staleLiveMessage,
       liveLastUpdate,
       liveProjection,
       weeklyPlaced,

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
-import { buildLiveLookup, fetchLiveRows, isTournamentLikelyFinal, statusForBet } from "@/lib/live-status";
+import { buildLiveLookup, fetchLiveRows, isTournamentLikelyFinal, liveFeedMatchesEvent, staleLiveFeedMessage, statusForBet } from "@/lib/live-status";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -134,6 +134,9 @@ async function settleWeek(week: any, opts: { forceFinal?: boolean; requireCurren
   const live = await fetchLiveRows(tour);
   if (live.error) {
     throw new Error(live.error);
+  }
+  if (!liveFeedMatchesEvent(live.info, week.eventName)) {
+    return { weekId: week.id, eventName: week.eventName, tour, settled: 0, skipped: unsettled.length, final: false, message: staleLiveFeedMessage(live.info, week.eventName) };
   }
 
   const leaderboardFinal = isTournamentLikelyFinal(live.rows);
