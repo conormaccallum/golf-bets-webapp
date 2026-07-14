@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/performance/auto-settle",
+      "schedule": "0 6 * * *"
+    }
+  ]
+}

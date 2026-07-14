@@ -193,6 +193,29 @@ function finishStatus(row: LiveRow, target: "win" | "top_5" | "top_10" | "top_20
   };
 }
 
+
+export function isTournamentLikelyFinal(rows: LiveRow[]) {
+  const activeRows = rows.filter((row) => {
+    const posRaw = String(row?.current_pos ?? "").toLowerCase();
+    if (!row || /(cut|wd|dq|mc)/.test(posRaw)) return false;
+    const round = toNumber(row.round);
+    const thru = toNumber(row.thru);
+    // If anyone is in round 4 but has not completed 18, the event is still live.
+    if (round !== null && round >= 4 && thru !== null && thru < 18) return true;
+    // If anyone has not yet reached round 4 and has not missed the cut, avoid final settlement.
+    if (round !== null && round < 4) return true;
+    return false;
+  });
+
+  const hasFinalRoundFinish = rows.some((row) => {
+    const round = toNumber(row?.round);
+    const thru = toNumber(row?.thru);
+    return round !== null && round >= 4 && thru !== null && thru >= 18;
+  });
+
+  return hasFinalRoundFinish && activeRows.length === 0;
+}
+
 export function statusForBet(
   bet: BetLike,
   lookup: ReturnType<typeof buildLiveLookup>,

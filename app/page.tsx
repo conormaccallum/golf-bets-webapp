@@ -25,6 +25,7 @@ type HomeSummary = {
       returnUnits: number | null;
       eventName: string;
       eventYear: number;
+      tour?: string | null;
     };
   };
   liveError?: string | null;
@@ -172,8 +173,8 @@ export default function HomePage() {
         <div style={{ height: 18 }} />
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
-          <Card><Stat label="YTD P/L" value={`${fmtSigned(ytd?.pnlUnits)}u`} /></Card>
-          <Card><Stat label="YTD ROI" value={fmtPct(ytd?.roi)} /></Card>
+          <Card><Stat label="YTD P/L (All Tours)" value={`${fmtSigned(ytd?.pnlUnits)}u`} /></Card>
+          <Card><Stat label="YTD ROI (All Tours)" value={fmtPct(ytd?.roi)} /></Card>
           <Card><Stat label="Bets Placed" value={String(ytd?.betsPlaced ?? 0)} /></Card>
           <Card><Stat label="Won / Lost" value={`${ytd?.betsWon ?? 0} / ${ytd?.betsLost ?? 0}`} /></Card>
         </div>
@@ -188,7 +189,7 @@ export default function HomePage() {
             <div style={{ display: "flex", gap: 18, flexWrap: "wrap", color: "var(--gb-muted)" }}>
               <b style={{ color: "var(--gb-text)" }}>{ytd.bestBet.playerName}</b>
               <span>{ytd.bestBet.market}</span>
-              <span>{ytd.bestBet.eventName} {ytd.bestBet.eventYear}</span>
+              <span>{(ytd.bestBet.tour || "pga").toUpperCase()} • {ytd.bestBet.eventName} {ytd.bestBet.eventYear}</span>
               <span>Odds {fmt(ytd.bestBet.odds)}</span>
               <span>Stake {fmt(ytd.bestBet.stake)}u</span>
               <span style={{ color: "var(--gb-positive)", fontWeight: 800 }}>Return {fmtSigned(ytd.bestBet.returnUnits)}u</span>

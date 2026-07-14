@@ -151,6 +151,7 @@ export async function POST(req: Request) {
         return {
           placedAtUtc: (r[idx["placed_at_utc"]] ?? "") || null,
           betType,
+          tour,
           playerName,
           dgId: toInt(r[idx["dg_id"]]),
           marketBookBest: (r[idx["market_book_best"]] ?? "") || null,
@@ -168,6 +169,7 @@ export async function POST(req: Request) {
       .filter(Boolean) as Array<{
       placedAtUtc: string | null;
       betType: string;
+      tour: string;
       playerName: string;
       dgId: number | null;
       marketBookBest: string | null;
@@ -212,6 +214,7 @@ export async function POST(req: Request) {
           eventName,
           eventYear,
           eventId,
+          tour,
           bets: {
             create: bets,
           },

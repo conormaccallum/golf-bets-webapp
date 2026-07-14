@@ -100,13 +100,15 @@ export async function GET(req: Request) {
     const meta = await getMeta(tour);
     const eventId = meta?.eventId ? String(meta.eventId) : "";
 
-    const weeks = await prisma.week.findMany({
-      where: { tour, eventYear: ytdYear },
+    const ytdWeeks = await prisma.week.findMany({
+      where: { eventYear: ytdYear },
       include: { bets: true },
       orderBy: { createdAt: "desc" },
     });
 
-    const allBets = weeks.flatMap((w) => w.bets.map((b) => ({ ...b, week: w })));
+    const currentTourWeeks = ytdWeeks.filter((w) => w.tour === tour);
+
+    const allBets = ytdWeeks.flatMap((w) => w.bets.map((b) => ({ ...b, week: w })));
     const settled = allBets.filter((b) => b.resultWinFlag !== null);
     const won = settled.filter((b) => b.resultWinFlag === 1 && Number(b.returnUnits) !== 0).length;
     const lost = settled.filter((b) => b.resultWinFlag === 0).length;
@@ -126,7 +128,7 @@ export async function GET(req: Request) {
       : [];
 
     const currentWeek = eventId
-      ? weeks.find((w) => String(w.eventId) === eventId && w.tour === tour)
+      ? currentTourWeeks.find((w) => String(w.eventId) === eventId && w.tour === tour)
       : null;
     const performanceBets = currentWeek?.bets ?? [];
 
@@ -266,6 +268,7 @@ export async function GET(req: Request) {
               returnUnits: best.returnUnits,
               eventName: best.week.eventName,
               eventYear: best.week.eventYear,
+              tour: best.week.tour,
             }
           : null,
       },
