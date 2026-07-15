@@ -208,12 +208,20 @@ export default function BetslipPage() {
     }
   }
 
+  const sortByEvDesc = (a: BetslipItem, b: BetslipItem) => {
+    const av = Number(a.evPerUnit);
+    const bv = Number(b.evPerUnit);
+    const aScore = Number.isFinite(av) ? av : -Infinity;
+    const bScore = Number.isFinite(bv) ? bv : -Infinity;
+    return bScore - aScore;
+  };
+
   const pending = useMemo(
-    () => items.filter((i) => i.status === "PENDING"),
+    () => items.filter((i) => i.status === "PENDING").sort(sortByEvDesc),
     [items]
   );
   const placed = useMemo(
-    () => items.filter((i) => i.status === "PLACED"),
+    () => items.filter((i) => i.status === "PLACED").sort(sortByEvDesc),
     [items]
   );
 
