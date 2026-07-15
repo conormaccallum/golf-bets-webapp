@@ -248,6 +248,10 @@ async function buildOutputMap(tour: string, eventId: string) {
       pModel: number | null;
       edgeProb: number | null;
       opponents: string | null;
+      playerName: string;
+      dgId: string | null;
+      market: string;
+      qualified: boolean;
     }
   >();
 
@@ -314,6 +318,7 @@ async function buildOutputMap(tour: string, eventId: string) {
           null;
       }
       const edgeProb = toNumber(r.edge_prob);
+      const qualified = String(r.bet_flag || r.strategy_qualified || "").toLowerCase() === "true";
 
       map.set(uniqueKey, {
         marketOddsBestDec,
@@ -321,6 +326,10 @@ async function buildOutputMap(tour: string, eventId: string) {
         pModel,
         edgeProb,
         opponents: opponents || null,
+        playerName,
+        dgId,
+        market,
+        qualified,
       });
     }
   }
@@ -328,21 +337,11 @@ async function buildOutputMap(tour: string, eventId: string) {
   return map;
 }
 
-async function syncPendingFromOutputs() {
+async function syncPendingFromOutputs(tourInput?: string) {
   const prisma = getPrisma();
-  const pending = await prisma.betslipItem.findMany({
-    where: { status: "PENDING" },
-    orderBy: { createdAt: "asc" },
-  });
+  const tours = tourInput ? [normalizeTour(tourInput)] : ["pga", "dp"];
 
-  const byTour = new Map<string, typeof pending>();
-  for (const p of pending) {
-    const t = normalizeTour(p.tour);
-    if (!byTour.has(t)) byTour.set(t, []);
-    byTour.get(t)!.push(p);
-  }
-
-  for (const [tour, items] of byTour.entries()) {
+  for (const tour of tours) {
     let meta: any;
     try {
       meta = await getMeta(tour);
@@ -350,10 +349,60 @@ async function syncPendingFromOutputs() {
       continue;
     }
     if (!meta?.eventId) continue;
-    const outputs = await buildOutputMap(tour, meta.eventId);
 
-    for (const b of items) {
-      if (b.eventId !== meta.eventId) continue;
+    const eventId = String(meta.eventId);
+    const outputs = await buildOutputMap(tour, eventId);
+    const existing = await prisma.betslipItem.findMany({
+      where: { tour, eventId },
+      orderBy: { createdAt: "asc" },
+    });
+    const existingKeys = new Set(existing.map((b) => b.uniqueKey));
+
+    for (const [uniqueKey, fromOut] of outputs.entries()) {
+      if (!fromOut.qualified || existingKeys.has(uniqueKey)) continue;
+      if (!fromOut.marketOddsBestDec || !fromOut.marketBookBest || !fromOut.pModel) continue;
+
+      const { edge, evPerUnit, kellyFull, kellyFrac, stakeRaw } = computeStakeUnits(
+        fromOut.pModel,
+        fromOut.marketOddsBestDec
+      );
+      const stakeMult = stakeMultiplierForMarket(fromOut.market);
+      const cap = BANKROLL_UNITS * MAX_BET_FRAC;
+      let stake = stakeRaw * stakeMult;
+      if (stake > cap) stake = cap;
+
+      await prisma.betslipItem.create({
+        data: {
+          uniqueKey,
+          tour,
+          eventId,
+          eventName: meta.eventName,
+          eventYear: meta.eventYear,
+          market: fromOut.market,
+          playerName: fromOut.playerName,
+          dgId: fromOut.dgId,
+          opponents: fromOut.opponents,
+          marketBookBest: fromOut.marketBookBest,
+          marketOddsBestDec: fromOut.marketOddsBestDec,
+          oddsEnteredDec: fromOut.marketOddsBestDec,
+          pModel: fromOut.pModel,
+          edgeProb: edge,
+          evPerUnit,
+          kellyFull,
+          kellyFrac,
+          stakeUnits: Number.isFinite(stake) ? stake : 0,
+          status: "PENDING",
+        },
+      });
+      existingKeys.add(uniqueKey);
+    }
+
+    const pending = await prisma.betslipItem.findMany({
+      where: { tour, eventId, status: "PENDING", archivedAt: null },
+      orderBy: { createdAt: "asc" },
+    });
+
+    for (const b of pending) {
       const fromOut = outputs.get(b.uniqueKey);
       if (!fromOut) continue;
 
@@ -385,7 +434,7 @@ async function syncPendingFromOutputs() {
       });
     }
 
-    await recalcPending(tour, meta.eventId);
+    await recalcPending(tour, eventId);
   }
 }
 
@@ -396,7 +445,7 @@ export async function GET(req: Request) {
     const sync = url.searchParams.get("sync") === "1";
     const tour = normalizeTour(url.searchParams.get("tour") || DEFAULT_TOUR);
     if (sync) {
-      await syncPendingFromOutputs();
+      await syncPendingFromOutputs(tour);
     }
     const meta = await getMeta(tour);
     const items = await prisma.betslipItem.findMany({
