@@ -62,19 +62,14 @@ export async function POST(req: Request) {
     const tour = normalizeTour(url.searchParams.get("tour") || DEFAULT_TOUR);
     const meta = await getMeta(tour);
     const eventId = String(meta.eventId);
-    let placed = await prisma.betslipItem.findMany({
-      where: { tour, eventId, status: "PLACED", archivedAt: null },
+    // Manual commits double as a repair path: include archived placed rows so
+    // missing Performance bets can be rebuilt after later commit batches.
+    const placed = await prisma.betslipItem.findMany({
+      where: manual
+        ? { tour, eventId, status: "PLACED" }
+        : { tour, eventId, status: "PLACED", archivedAt: null },
       orderBy: [{ eventYear: "desc" }, { eventName: "asc" }, { createdAt: "asc" }],
     });
-
-    // Manual archive acts as a repair path too: rebuild the current event from
-    // existing placed bets even if those rows were already archived earlier.
-    if (placed.length === 0 && manual) {
-      placed = await prisma.betslipItem.findMany({
-        where: { tour, eventId, status: "PLACED" },
-        orderBy: [{ eventYear: "desc" }, { eventName: "asc" }, { createdAt: "asc" }],
-      });
-    }
 
     if (placed.length === 0) {
       return NextResponse.json({ ok: true, archived: 0 });
