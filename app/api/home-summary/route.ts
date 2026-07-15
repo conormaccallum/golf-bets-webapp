@@ -175,25 +175,6 @@ export async function GET(req: Request) {
       });
     }
 
-    for (const b of placedItems) {
-      if (usedBetslipIds.has(b.id)) continue;
-      weeklyRows.push({
-        id: `betslip-${b.id}`,
-        source: "betslip",
-        market: b.market,
-        playerName: b.playerName,
-        dgId: b.dgId,
-        opponents: b.opponents,
-        book: b.marketBookBest,
-        odds: b.oddsEnteredDec ?? b.marketOddsBestDec,
-        stake: b.stakeUnitsEntered ?? b.stakeUnits,
-        pModel: b.pModel,
-        evPerUnit: b.evPerUnit,
-        resultWinFlag: null,
-        returnUnits: null,
-      });
-    }
-
     const live = await fetchLiveRows(tour);
     const liveMatchesCurrentEvent = !live.error && liveFeedMatchesEvent(live.info, meta?.eventName);
     const staleLiveMessage = !live.error && !liveMatchesCurrentEvent
