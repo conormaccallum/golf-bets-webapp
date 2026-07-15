@@ -77,6 +77,19 @@ export async function POST(req: Request) {
     }
 
     if (placed.length === 0) {
+      if (manual) {
+        const existingWeek = await prisma.week.findUnique({ where: { eventId_tour: { eventId, tour } } });
+        if (existingWeek) {
+          const cleanup = await prisma.bet.deleteMany({
+            where: {
+              weekId: existingWeek.id,
+              resultWinFlag: null,
+              returnUnits: null,
+            },
+          });
+          return NextResponse.json({ ok: true, archived: 0, reconciled: true, deletedStaleBets: cleanup.count });
+        }
+      }
       return NextResponse.json({ ok: true, archived: 0 });
     }
 
@@ -116,6 +129,7 @@ export async function POST(req: Request) {
           b,
         ])
       );
+      const placedSigs = new Set<string>();
 
       for (const b of group) {
         const dgIdNum =
@@ -145,6 +159,7 @@ export async function POST(req: Request) {
           marketOddsBestDec: betData.marketOddsBestDec,
           stakeUnits: betData.stakeUnits,
         });
+        placedSigs.add(sig);
         const existing = existingBySig.get(sig);
         if (existing) {
           await prisma.bet.update({
@@ -163,6 +178,29 @@ export async function POST(req: Request) {
           continue;
         }
         await prisma.bet.create({ data: betData });
+      }
+
+      // Manual commit is a reconciliation step: Performance should mirror the
+      // bets explicitly marked as PLACED in the betslip, not stale CSV/model rows.
+      if (manual) {
+        const staleBetIds = existingBets
+          .filter((b) => {
+            if (b.resultWinFlag !== null || b.returnUnits !== null) return false;
+            const sig = betSignature({
+              betType: b.betType,
+              playerName: b.playerName,
+              dgId: b.dgId,
+              marketBookBest: b.marketBookBest,
+              marketOddsBestDec: b.marketOddsBestDec,
+              stakeUnits: b.stakeUnits,
+            });
+            return !placedSigs.has(sig);
+          })
+          .map((b) => b.id);
+
+        if (staleBetIds.length > 0) {
+          await prisma.bet.deleteMany({ where: { id: { in: staleBetIds } } });
+        }
       }
     }
 
