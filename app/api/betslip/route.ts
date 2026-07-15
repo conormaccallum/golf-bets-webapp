@@ -4,6 +4,7 @@ import { parseCsv, rowsToObjects, toNumber } from "@/lib/csv";
 import {
   computeStakeUnits,
   BANKROLL_UNITS,
+  MAX_EVENT_EXPOSURE_FRAC,
   MIN_EDGE,
   MIN_EV_PER_UNIT,
   MAX_BET_FRAC,
@@ -74,7 +75,7 @@ function splitOpponents(opponents: string | null) {
     .filter(Boolean);
 }
 
-function applyPlayerCap<T extends { id: string; stakeUnits: number }>(
+function applyPlayerCap<T extends { id: string; stakeUnits: number; manualStake?: boolean }>(
   recalced: Array<T>,
   pending: Array<{
     id: string;
@@ -100,6 +101,7 @@ function applyPlayerCap<T extends { id: string; stakeUnits: number }>(
   for (const r of recalced) {
     const p = pending.find((x) => x.id === r.id);
     if (!p) continue;
+    if (r.manualStake) continue;
     const key = playerKey(p.dgId, p.playerName);
     sumByPlayerPending.set(key, (sumByPlayerPending.get(key) || 0) + r.stakeUnits);
 
@@ -152,6 +154,7 @@ function applyPlayerCap<T extends { id: string; stakeUnits: number }>(
   return recalced.map((r) => {
     const p = pending.find((x) => x.id === r.id);
     if (!p) return r;
+    if (r.manualStake) return r;
     const key = playerKey(p.dgId, p.playerName);
     const fPlayer = factorByPlayer.get(key) ?? 1;
     let fOpp = 1;
@@ -172,6 +175,23 @@ function applyPlayerCap<T extends { id: string; stakeUnits: number }>(
   });
 }
 
+function applyPortfolioCap<T extends { stakeUnits: number; manualStake?: boolean }>(
+  recalced: Array<T>,
+  placed: Array<{ stakeUnits: number | null }>
+) {
+  const cap = BANKROLL_UNITS * MAX_EVENT_EXPOSURE_FRAC;
+  const placedTotal = placed.reduce((acc, b) => acc + (Number(b.stakeUnits) || 0), 0);
+  const manualPendingTotal = recalced
+    .filter((r) => r.manualStake)
+    .reduce((acc, r) => acc + (Number(r.stakeUnits) || 0), 0);
+  const scalableTotal = recalced
+    .filter((r) => !r.manualStake)
+    .reduce((acc, r) => acc + (Number(r.stakeUnits) || 0), 0);
+  const remaining = cap - placedTotal - manualPendingTotal;
+  const factor = scalableTotal > 0 ? Math.min(1, Math.max(0, remaining / scalableTotal)) : 1;
+  return recalced.map((r) => (r.manualStake ? r : { ...r, stakeUnits: r.stakeUnits * factor }));
+}
+
 async function recalcPending(tour: string, eventId: string) {
   const prisma = getPrisma();
   const pending = await prisma.betslipItem.findMany({
@@ -188,13 +208,16 @@ async function recalcPending(tour: string, eventId: string) {
     const p = b.pModel ?? 0;
     const { edge, evPerUnit, kellyFull, kellyFrac, stakeRaw } = computeStakeUnits(p, oddsDec);
     const stakeMult = stakeMultiplierForMarket(b.market);
+    const computedStakeUnits = stakeRaw * stakeMult;
+    const manualStake = b.stakeUnitsEntered !== null && b.stakeUnitsEntered !== undefined;
     return {
       id: b.id,
       edgeProb: edge,
       evPerUnit,
       kellyFull,
       kellyFrac,
-      stakeUnits: stakeRaw * stakeMult,
+      stakeUnits: manualStake ? Number(b.stakeUnitsEntered) || 0 : computedStakeUnits,
+      manualStake,
     };
   });
 
@@ -216,10 +239,12 @@ async function recalcPending(tour: string, eventId: string) {
     }))
   );
 
-  for (const r of withPlayerCap) {
+  const withPortfolioCap = applyPortfolioCap(withPlayerCap, placed);
+
+  for (const r of withPortfolioCap) {
     const cap = BANKROLL_UNITS * MAX_BET_FRAC;
     let stake = r.stakeUnits;
-    if (stake > cap) stake = cap;
+    if (!r.manualStake && stake > cap) stake = cap;
     await prisma.betslipItem.update({
       where: { id: r.id },
       data: {

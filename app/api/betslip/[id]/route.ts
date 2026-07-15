@@ -3,6 +3,7 @@ import { getPrisma } from "@/lib/prisma";
 import {
   computeStakeUnits,
   BANKROLL_UNITS,
+  MAX_EVENT_EXPOSURE_FRAC,
   MAX_BET_FRAC,
   stakeMultiplierForMarket,
 } from "@/lib/staking";
@@ -120,6 +121,23 @@ function applyPlayerCap<T extends { id: string; stakeUnits: number; manualStake:
   });
 }
 
+function applyPortfolioCap<T extends { stakeUnits: number; manualStake?: boolean }>(
+  recalced: Array<T>,
+  placed: Array<{ stakeUnits: number | null }>
+) {
+  const cap = BANKROLL_UNITS * MAX_EVENT_EXPOSURE_FRAC;
+  const placedTotal = placed.reduce((acc, b) => acc + (Number(b.stakeUnits) || 0), 0);
+  const manualPendingTotal = recalced
+    .filter((r) => r.manualStake)
+    .reduce((acc, r) => acc + (Number(r.stakeUnits) || 0), 0);
+  const scalableTotal = recalced
+    .filter((r) => !r.manualStake)
+    .reduce((acc, r) => acc + (Number(r.stakeUnits) || 0), 0);
+  const remaining = cap - placedTotal - manualPendingTotal;
+  const factor = scalableTotal > 0 ? Math.min(1, Math.max(0, remaining / scalableTotal)) : 1;
+  return recalced.map((r) => (r.manualStake ? r : { ...r, stakeUnits: r.stakeUnits * factor }));
+}
+
 async function recalcPending(tour: string, eventId: string) {
   const prisma = getPrisma();
   const pending = await prisma.betslipItem.findMany({
@@ -167,7 +185,9 @@ async function recalcPending(tour: string, eventId: string) {
     }))
   );
 
-  for (const r of withPlayerCap) {
+  const withPortfolioCap = applyPortfolioCap(withPlayerCap, placed);
+
+  for (const r of withPortfolioCap) {
     const cap = BANKROLL_UNITS * MAX_BET_FRAC;
     let stake = r.stakeUnits;
     if (!r.manualStake && stake > cap) stake = cap;
