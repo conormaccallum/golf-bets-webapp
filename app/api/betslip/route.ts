@@ -8,6 +8,8 @@ import {
   MIN_EV_PER_UNIT,
   MAX_BET_FRAC,
   stakeMultiplierForMarket,
+  qualifiesMarketBet,
+  marketCriteria,
 } from "@/lib/staking";
 
 const OUTPUT_BASE = process.env.OUTPUT_BASE_URL || "";
@@ -268,6 +270,10 @@ async function buildRecommendedBetslipMap(tour: string, eventId: string) {
 
     const dgId = r.dg_id ? String(r.dg_id) : null;
     const opponents = r.opponents || null;
+    const oddsDec = toNumber(r.market_odds_best_dec);
+    const evPerUnit = toNumber(r.ev_per_unit);
+    if (!qualifiesMarketBet(market, evPerUnit, oddsDec)) continue;
+
     const uniqueKey = makeUniqueKey({
       tour,
       eventId,
@@ -278,11 +284,11 @@ async function buildRecommendedBetslipMap(tour: string, eventId: string) {
     });
 
     map.set(uniqueKey, {
-      marketOddsBestDec: toNumber(r.market_odds_best_dec),
+      marketOddsBestDec: oddsDec,
       marketBookBest: r.market_book_best || null,
       pModel: toNumber(r.p_model),
       edgeProb: toNumber(r.edge_prob),
-      evPerUnit: toNumber(r.ev_per_unit),
+      evPerUnit,
       kellyFull: toNumber(r.kelly_full),
       kellyFrac: toNumber(r.kelly_frac),
       stakeUnits: toNumber(r.stake_units),
@@ -457,6 +463,24 @@ export async function POST(req: Request) {
       opponents: body.opponents || null,
     });
 
+    const marketOddsBestDec = toNumber(body.marketOddsBestDec);
+    const pModel = toNumber(body.pModel);
+    const evPerUnit = pModel !== null && marketOddsBestDec !== null && marketOddsBestDec > 1
+      ? pModel * (marketOddsBestDec - 1) - (1 - pModel)
+      : null;
+    if (!qualifiesMarketBet(body.market, evPerUnit, marketOddsBestDec)) {
+      const criteria = marketCriteria(body.market);
+      return NextResponse.json(
+        {
+          ok: false,
+          error: criteria
+            ? `Bet does not meet model criteria: EV/unit must be >= ${criteria.minEv} and odds must be <= ${criteria.oddsCap}.`
+            : "Bet market is not part of the active model criteria.",
+        },
+        { status: 400 }
+      );
+    }
+
     const existing = await prisma.betslipItem.findUnique({ where: { uniqueKey } });
     if (existing) {
       const alreadyPlaced = existing.status === "PLACED" || existing.archivedAt !== null;
@@ -485,9 +509,9 @@ export async function POST(req: Request) {
         dgId,
         opponents: body.opponents || null,
         marketBookBest: body.marketBookBest || null,
-        marketOddsBestDec: body.marketOddsBestDec || null,
-        oddsEnteredDec: body.marketOddsBestDec || null,
-        pModel: body.pModel ?? null,
+        marketOddsBestDec,
+        oddsEnteredDec: marketOddsBestDec,
+        pModel,
         status: "PENDING",
       },
     });

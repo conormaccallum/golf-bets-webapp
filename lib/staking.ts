@@ -4,6 +4,30 @@ export const MAX_BET_FRAC = 0.10;
 export const MIN_EDGE = 0.04;
 export const MIN_EV_PER_UNIT = 0;
 
+
+
+export const MARKET_BET_CRITERIA: Record<string, { minEv: number; oddsCap: number | null }> = {
+  "top 10": { minEv: 0.20, oddsCap: 10.0 },
+  "top 20": { minEv: 0.25, oddsCap: 10.0 },
+  "make cut": { minEv: 0.075, oddsCap: 3.0 },
+  "miss cut": { minEv: 0.15, oddsCap: 10.0 },
+};
+
+export function marketCriteria(market?: string): { minEv: number; oddsCap: number | null } | null {
+  const key = (market || "").trim().toLowerCase();
+  return MARKET_BET_CRITERIA[key] ?? null;
+}
+
+export function qualifiesMarketBet(market: string | undefined, evPerUnit: number | null | undefined, oddsDec: number | null | undefined): boolean {
+  const criteria = marketCriteria(market);
+  if (!criteria) return false;
+  if (evPerUnit === null || evPerUnit === undefined || !Number.isFinite(evPerUnit)) return false;
+  if (oddsDec === null || oddsDec === undefined || !Number.isFinite(oddsDec)) return false;
+  if (evPerUnit < criteria.minEv) return false;
+  if (criteria.oddsCap !== null && oddsDec > criteria.oddsCap) return false;
+  return true;
+}
+
 export const MARKET_STAKE_MULTIPLIERS = {
   default: 1.0,
   matchup2: 0.5,

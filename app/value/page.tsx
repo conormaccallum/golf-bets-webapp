@@ -2,6 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { HeaderNav, Button } from "../components/ui";
+import { marketCriteria, qualifiesMarketBet } from "@/lib/staking";
 
 type Market = "top10" | "top20" | "make_cut" | "miss_cut";
 type TableData = { headers: string[]; rows: string[][] };
@@ -137,7 +138,9 @@ function buildDisplayRows(raw: TableData | null, market: Market): DisplayRow[] {
           ? modelProb * (odds - 1) - (1 - modelProb)
           : null;
       const qualifiedRaw = idxQualified >= 0 ? String(r[idxQualified] ?? "").trim().toLowerCase() : "";
-      const qualified = idxQualified >= 0 ? ["true", "1", "yes"].includes(qualifiedRaw) : null;
+      const csvQualified = idxQualified >= 0 ? ["true", "1", "yes"].includes(qualifiedRaw) : null;
+      const hardQualified = qualifiesMarketBet(marketLabel(market), evPerUnit, odds);
+      const qualified = csvQualified === null ? hardQualified : csvQualified && hardQualified;
       return {
         playerName: idxPlayer >= 0 ? r[idxPlayer] ?? "" : "",
         opponents: idxOpp >= 0 ? r[idxOpp] ?? "" : "",
@@ -363,7 +366,7 @@ export default function ValueScreensPage() {
           <input
             value={minEv}
             onChange={(e) => setMinEv(e.target.value)}
-            placeholder="Min EV / unit (0.000 default)"
+            placeholder={`Min EV / unit (${marketCriteria(marketLabel(market))?.minEv.toFixed(3) ?? "0.000"} default)`}
             className="gb-control" style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--gb-border)", background: "var(--gb-surface)", color: "var(--gb-text)", width: 190 }}
           />
 
@@ -438,6 +441,7 @@ export default function ValueScreensPage() {
                   const alreadyAdded = betslipKeySet.has(uniqueKey);
                   const alreadyPlaced = placedBetslipKeySet.has(uniqueKey);
                   const missingOdds = row.odds === null || !row.book.trim() || row.modelProb === null;
+                  const failsCriteria = !qualifiesMarketBet(row.marketLabel, row.evPerUnit, row.odds);
                   const isValue = (row.evPerUnit ?? -999) > 0;
                   const metricValue = metricView === "edge" ? formatEdge(row.edge) : formatEv(row.evPerUnit);
                   return (
@@ -451,8 +455,8 @@ export default function ValueScreensPage() {
                         {metricValue}
                       </td>
                       <td data-label="" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>
-                        <Button onClick={() => addToBetslip(row)} disabled={addingId === rowId || alreadyAdded || alreadyPlaced || missingOdds}>
-                          {missingOdds ? "No odds" : addButtonLabel(rowId, alreadyAdded, alreadyPlaced)}
+                        <Button onClick={() => addToBetslip(row)} disabled={addingId === rowId || alreadyAdded || alreadyPlaced || missingOdds || failsCriteria}>
+                          {missingOdds ? "No odds" : failsCriteria ? "Below criteria" : addButtonLabel(rowId, alreadyAdded, alreadyPlaced)}
                         </Button>
                       </td>
                     </tr>
