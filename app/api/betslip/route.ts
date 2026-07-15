@@ -231,15 +231,8 @@ async function recalcPending(tour: string, eventId: string) {
   }
 }
 
-async function buildOutputMap(tour: string, eventId: string) {
-  const markets = [
-    { key: "top10", file: "latest_value_top10.csv" },
-    { key: "top20", file: "latest_value_top20.csv" },
-    { key: "makeCut", file: "latest_value_make_cut.csv" },
-    { key: "missCut", file: "latest_value_miss_cut.csv" },
-    { key: "matchup2", file: "latest_value_matchups_2ball.csv" },
-    { key: "matchup3", file: "latest_value_matchups_3ball.csv" },
-  ];
+async function buildRecommendedBetslipMap(tour: string, eventId: string) {
+  const res = await fetchFromOutputs(tour, "latest_betslip.csv");
   const map = new Map<
     string,
     {
@@ -247,91 +240,57 @@ async function buildOutputMap(tour: string, eventId: string) {
       marketBookBest: string | null;
       pModel: number | null;
       edgeProb: number | null;
+      evPerUnit: number | null;
+      kellyFull: number | null;
+      kellyFrac: number | null;
+      stakeUnits: number | null;
       opponents: string | null;
       playerName: string;
       dgId: string | null;
       market: string;
-      qualified: boolean;
     }
   >();
 
-  for (const m of markets) {
-    const res = await fetchFromOutputs(tour, m.file);
-    if (!res.ok) continue;
-    const csv = await res.text();
-    const { headers, rows } = parseCsv(csv);
-    if (headers.length === 0 || rows.length === 0) continue;
-    const objs = rowsToObjects(headers, rows);
+  if (!res.ok) return map;
+  const csv = await res.text();
+  const { headers, rows } = parseCsv(csv);
+  if (headers.length === 0 || rows.length === 0) return map;
 
-    for (const r of objs) {
-      const playerName =
-        r.player_name ||
-        r.player ||
-        r.p1_player_name ||
-        r.p2_player_name ||
-        r.p3_player_name ||
-        "";
-      if (!playerName) continue;
-      const opponents = r.opponents || r.p2_player_name || r.p3_player_name || "";
-      const dgIdRaw = r.dg_id || r.p1_dg_id || r.p2_dg_id || r.p3_dg_id || "";
-      const dgId = dgIdRaw ? String(dgIdRaw) : null;
-      const market = normalizeMarketName(m.key);
-      const uniqueKey = makeUniqueKey({
-        tour,
-        eventId,
-        market,
-        dgId,
-        playerName,
-        opponents,
-      });
+  const objs = rowsToObjects(headers, rows);
+  for (const r of objs) {
+    const market = normalizeMarketName(String(r.bet_type || r.market || ""));
+    const marketLower = market.toLowerCase();
+    // Matchups are research/watchlist only for now; never auto-seed them.
+    if (!market || marketLower.includes("matchup")) continue;
 
-      const marketOddsBestDec =
-        toNumber(r.market_odds_best_dec) ?? toNumber(r.market_odds) ?? toNumber(r.odds);
-      const marketBookBest = r.market_book_best || r.market_book || r.book || null;
-      let pModel: number | null = null;
-      if (m.key === "top10") {
-        pModel = toNumber(r.p_model) ?? toNumber(r.top10_strategy_prob) ?? toNumber(r.top10_prob_anchored) ?? toNumber(r.top10_prob_model) ?? null;
-      } else if (m.key === "missCut") {
-        pModel = toNumber(r.p_model) ?? toNumber(r.miss_cut_strategy_prob) ?? toNumber(r.p_miss_cut_dg) ?? toNumber(r.p_miss_cut_anchored) ?? toNumber(r.p_miss_cut_model) ?? null;
-      } else if (m.key === "makeCut") {
-        pModel = toNumber(r.p_model) ?? toNumber(r.make_cut_strategy_prob) ?? toNumber(r.p_make_cut_anchored) ?? toNumber(r.p_make_cut_model) ?? null;
-      } else if (m.key === "top20") {
-        pModel =
-          toNumber(r.p_model) ??
-          toNumber(r.top20_strategy_prob) ??
-          toNumber(r.top20_prob_anchored_dh) ??
-          toNumber(r.top20_prob_anchored) ??
-          toNumber(r.top20_prob_model) ??
-          null;
-      }
-      if (pModel === null) {
-        pModel =
-          toNumber(r.p_model) ??
-          toNumber(r.top10_strategy_prob) ??
-          toNumber(r.top20_strategy_prob) ??
-          toNumber(r.make_cut_strategy_prob) ??
-          toNumber(r.miss_cut_strategy_prob) ??
-          toNumber(r.top20_prob_anchored_dh) ??
-          toNumber(r.top20_prob_model) ??
-          toNumber(r.p_make_cut_model) ??
-          toNumber(r.p_miss_cut_model) ??
-          null;
-      }
-      const edgeProb = toNumber(r.edge_prob);
-      const qualified = String(r.bet_flag || r.strategy_qualified || "").toLowerCase() === "true";
+    const playerName = r.player_name || r.player || "";
+    if (!playerName) continue;
 
-      map.set(uniqueKey, {
-        marketOddsBestDec,
-        marketBookBest,
-        pModel,
-        edgeProb,
-        opponents: opponents || null,
-        playerName,
-        dgId,
-        market,
-        qualified,
-      });
-    }
+    const dgId = r.dg_id ? String(r.dg_id) : null;
+    const opponents = r.opponents || null;
+    const uniqueKey = makeUniqueKey({
+      tour,
+      eventId,
+      market,
+      dgId,
+      playerName,
+      opponents,
+    });
+
+    map.set(uniqueKey, {
+      marketOddsBestDec: toNumber(r.market_odds_best_dec),
+      marketBookBest: r.market_book_best || null,
+      pModel: toNumber(r.p_model),
+      edgeProb: toNumber(r.edge_prob),
+      evPerUnit: toNumber(r.ev_per_unit),
+      kellyFull: toNumber(r.kelly_full),
+      kellyFrac: toNumber(r.kelly_frac),
+      stakeUnits: toNumber(r.stake_units),
+      opponents,
+      playerName,
+      dgId,
+      market,
+    });
   }
 
   return map;
@@ -351,24 +310,38 @@ async function syncPendingFromOutputs(tourInput?: string) {
     if (!meta?.eventId) continue;
 
     const eventId = String(meta.eventId);
-    const outputs = await buildOutputMap(tour, eventId);
+    const recommendations = await buildRecommendedBetslipMap(tour, eventId);
+    const recommendedKeys = new Set(recommendations.keys());
+
+    // Refresh Model Bets should make pending recommendations mirror the final
+    // model betslip. PLACED rows are never touched here.
+    await prisma.betslipItem.deleteMany({
+      where: {
+        tour,
+        eventId,
+        status: "PENDING",
+        archivedAt: null,
+        uniqueKey: { notIn: [...recommendedKeys] },
+      },
+    });
+
     const existing = await prisma.betslipItem.findMany({
       where: { tour, eventId },
       orderBy: { createdAt: "asc" },
     });
     const existingKeys = new Set(existing.map((b) => b.uniqueKey));
 
-    for (const [uniqueKey, fromOut] of outputs.entries()) {
-      if (!fromOut.qualified || existingKeys.has(uniqueKey)) continue;
-      if (!fromOut.marketOddsBestDec || !fromOut.marketBookBest || !fromOut.pModel) continue;
+    for (const [uniqueKey, rec] of recommendations.entries()) {
+      if (existingKeys.has(uniqueKey)) continue;
+      if (!rec.marketOddsBestDec || !rec.marketBookBest || !rec.pModel) continue;
 
       const { edge, evPerUnit, kellyFull, kellyFrac, stakeRaw } = computeStakeUnits(
-        fromOut.pModel,
-        fromOut.marketOddsBestDec
+        rec.pModel,
+        rec.marketOddsBestDec
       );
-      const stakeMult = stakeMultiplierForMarket(fromOut.market);
+      const stakeMult = stakeMultiplierForMarket(rec.market);
       const cap = BANKROLL_UNITS * MAX_BET_FRAC;
-      let stake = stakeRaw * stakeMult;
+      let stake = rec.stakeUnits ?? stakeRaw * stakeMult;
       if (stake > cap) stake = cap;
 
       await prisma.betslipItem.create({
@@ -378,18 +351,18 @@ async function syncPendingFromOutputs(tourInput?: string) {
           eventId,
           eventName: meta.eventName,
           eventYear: meta.eventYear,
-          market: fromOut.market,
-          playerName: fromOut.playerName,
-          dgId: fromOut.dgId,
-          opponents: fromOut.opponents,
-          marketBookBest: fromOut.marketBookBest,
-          marketOddsBestDec: fromOut.marketOddsBestDec,
-          oddsEnteredDec: fromOut.marketOddsBestDec,
-          pModel: fromOut.pModel,
-          edgeProb: edge,
-          evPerUnit,
-          kellyFull,
-          kellyFrac,
+          market: rec.market,
+          playerName: rec.playerName,
+          dgId: rec.dgId,
+          opponents: rec.opponents,
+          marketBookBest: rec.marketBookBest,
+          marketOddsBestDec: rec.marketOddsBestDec,
+          oddsEnteredDec: rec.marketOddsBestDec,
+          pModel: rec.pModel,
+          edgeProb: rec.edgeProb ?? edge,
+          evPerUnit: rec.evPerUnit ?? evPerUnit,
+          kellyFull: rec.kellyFull ?? kellyFull,
+          kellyFrac: rec.kellyFrac ?? kellyFrac,
           stakeUnits: Number.isFinite(stake) ? stake : 0,
           status: "PENDING",
         },
@@ -403,20 +376,19 @@ async function syncPendingFromOutputs(tourInput?: string) {
     });
 
     for (const b of pending) {
-      const fromOut = outputs.get(b.uniqueKey);
-      if (!fromOut) continue;
+      const rec = recommendations.get(b.uniqueKey);
+      if (!rec) continue;
 
-      const marketOddsBestDec =
-        fromOut.marketOddsBestDec ?? (b.marketOddsBestDec ?? b.oddsEnteredDec ?? null);
-      const marketBookBest = fromOut.marketBookBest ?? b.marketBookBest ?? null;
-      const pModel = fromOut.pModel ?? b.pModel ?? null;
+      const marketOddsBestDec = rec.marketOddsBestDec ?? (b.marketOddsBestDec ?? b.oddsEnteredDec ?? null);
+      const marketBookBest = rec.marketBookBest ?? b.marketBookBest ?? null;
+      const pModel = rec.pModel ?? b.pModel ?? null;
 
       const oddsForStake = b.oddsEnteredDec ?? marketOddsBestDec ?? 0;
       const pForStake = pModel ?? 0;
       const { edge, evPerUnit, kellyFull, kellyFrac, stakeRaw } = computeStakeUnits(pForStake, oddsForStake);
       const stakeMult = stakeMultiplierForMarket(b.market);
       const cap = BANKROLL_UNITS * MAX_BET_FRAC;
-      let stake = stakeRaw * stakeMult;
+      let stake = b.stakeUnitsEntered ?? rec.stakeUnits ?? stakeRaw * stakeMult;
       if (stake > cap) stake = cap;
 
       await prisma.betslipItem.update({
@@ -425,10 +397,10 @@ async function syncPendingFromOutputs(tourInput?: string) {
           marketOddsBestDec,
           marketBookBest,
           pModel,
-          edgeProb: edge,
-          evPerUnit,
-          kellyFull,
-          kellyFrac,
+          edgeProb: rec.edgeProb ?? edge,
+          evPerUnit: rec.evPerUnit ?? evPerUnit,
+          kellyFull: rec.kellyFull ?? kellyFull,
+          kellyFrac: rec.kellyFrac ?? kellyFrac,
           stakeUnits: Number.isFinite(stake) ? stake : 0,
         },
       });
