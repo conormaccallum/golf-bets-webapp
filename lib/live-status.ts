@@ -134,16 +134,28 @@ function normalizeEventName(name: string | null | undefined) {
     .replace(/[\u0300-\u036f]/g, "")
     .replace(/&/g, "and")
     .replace(/[^a-z0-9 ]/g, " ")
-    .replace(/\b(the|championship|open|presented|by)\b/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function compactEventName(name: string | null | undefined) {
+  return normalizeEventName(name).replace(/\s+/g, "");
 }
 
 export function liveFeedMatchesEvent(info: any | null, eventName: string | null | undefined) {
   const liveName = normalizeEventName(info?.event_name);
   const currentName = normalizeEventName(eventName);
+  const liveCompact = compactEventName(info?.event_name);
+  const currentCompact = compactEventName(eventName);
   if (!liveName || !currentName) return false;
-  return liveName === currentName || liveName.includes(currentName) || currentName.includes(liveName);
+  return (
+    liveName === currentName ||
+    liveName.includes(currentName) ||
+    currentName.includes(liveName) ||
+    liveCompact === currentCompact ||
+    liveCompact.includes(currentCompact) ||
+    currentCompact.includes(liveCompact)
+  );
 }
 
 export function staleLiveFeedMessage(info: any | null, eventName: string | null | undefined) {
