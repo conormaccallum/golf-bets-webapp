@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Button, HeaderNav } from "../components/ui";
+import { marketCriteria } from "@/lib/staking";
 
 type BetslipItem = {
   id: string;
@@ -50,6 +51,26 @@ function evLabel(ev: number | null) {
   if (ev === null || !Number.isFinite(ev)) return "";
   const sign = ev > 0 ? "+" : "";
   return `${sign}${ev.toFixed(3)}`;
+}
+
+function calcEv(pModel: number | null, oddsDec: number | null) {
+  if (pModel === null || oddsDec === null || !Number.isFinite(pModel) || !Number.isFinite(oddsDec) || oddsDec <= 1) return null;
+  return pModel * (oddsDec - 1) - (1 - pModel);
+}
+
+function criteriaWarning(item: BetslipItem, oddsDec: number | null, evPerUnit: number | null) {
+  const criteria = marketCriteria(item.market);
+  if (!criteria) return null;
+  if (oddsDec === null || evPerUnit === null) return "Cannot check criteria until odds and model probability are available.";
+
+  const reasons: string[] = [];
+  if (evPerUnit < criteria.minEv) {
+    reasons.push(`EV/unit ${evLabel(evPerUnit)} is below required ${evLabel(criteria.minEv)}`);
+  }
+  if (criteria.oddsCap !== null && oddsDec > criteria.oddsCap) {
+    reasons.push(`odds ${oddsDec.toFixed(2)} exceed cap ${criteria.oddsCap.toFixed(2)}`);
+  }
+  return reasons.length ? `Outside model criteria: ${reasons.join("; ")}.` : null;
 }
 
 export default function BetslipPage() {
@@ -360,8 +381,21 @@ export default function BetslipPage() {
                 </thead>
                 <tbody>
                   {pending.map((it, idx) => {
-                    const evLow = it.evPerUnit !== null && it.evPerUnit <= 0;
-                    const rowBg = evLow ? "#2b1414" : idx % 2 === 0 ? "var(--gb-bg)" : "var(--gb-row-alt)";
+                    const editedOddsRaw = edits[it.id]?.oddsDec ?? "";
+                    const editedOdds = editedOddsRaw.trim() === "" ? null : Number(editedOddsRaw);
+                    const displayOdds = editedOdds !== null && Number.isFinite(editedOdds)
+                      ? editedOdds
+                      : it.oddsEnteredDec ?? it.marketOddsBestDec;
+                    const displayEv = calcEv(it.pModel, displayOdds) ?? it.evPerUnit;
+                    const warning = criteriaWarning(it, displayOdds, displayEv);
+                    const evLow = displayEv !== null && displayEv <= 0;
+                    const rowBg = warning
+                      ? "#302111"
+                      : evLow
+                      ? "#2b1414"
+                      : idx % 2 === 0
+                      ? "var(--gb-bg)"
+                      : "var(--gb-row-alt)";
                     return (
                       <tr key={it.id} style={{ background: rowBg }}>
                         <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>
@@ -424,11 +458,15 @@ export default function BetslipPage() {
                           />
                         </td>
                         <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>
-                          <div style={{ fontWeight: 700 }}>{evLabel(it.evPerUnit)}</div>
+                          <div style={{ fontWeight: 700 }}>{evLabel(displayEv)}</div>
                         </td>
                         <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>
                           <div style={{ fontWeight: 700 }}>{edgeLabel(it.edgeProb)}</div>
-                          {evLow ? (
+                          {warning ? (
+                            <div style={{ color: "#ffd08a", fontSize: 12, maxWidth: 240 }}>
+                              {warning}
+                            </div>
+                          ) : evLow ? (
                             <div style={{ color: "#ffb3b3", fontSize: 12 }}>
                               EV not positive
                             </div>
