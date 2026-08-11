@@ -1,7 +1,28 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { HeaderNav, Button, Card } from "./components/ui";
+
+
+type ModelRunProgress = {
+  ok?: boolean;
+  error?: string;
+  run?: {
+    id: number;
+    status: string;
+    conclusion: string | null;
+    created_at: string;
+    run_started_at: string | null;
+    updated_at: string;
+    html_url: string;
+    isCurrentRequest?: boolean;
+  } | null;
+  output?: {
+    updatedForRequest?: boolean;
+    runMeta?: { runAt?: string; eventName?: string; eventYear?: number; tour?: string } | null;
+    eventMeta?: { eventName?: string; eventYear?: number; eventId?: string } | null;
+  };
+};
 
 type HomeSummary = {
   ok?: boolean;
@@ -77,6 +98,38 @@ function fmtPct(n: unknown) {
   return `${(v * 100).toFixed(1)}%`;
 }
 
+
+function runProgressMessage(progress: ModelRunProgress | null, startedAt: string | null) {
+  if (!startedAt) return "";
+  if (!progress) return "Starting model run...";
+  if (progress.error) return progress.error;
+
+  const run = progress.run;
+  const output = progress.output;
+  if (output?.updatedForRequest) {
+    const event = output.eventMeta?.eventName || output.runMeta?.eventName || "latest event";
+    return `Outputs updated for ${event}.`;
+  }
+  if (!run || !run.isCurrentRequest) return "GitHub has accepted the request. Waiting for the workflow run to appear...";
+  if (run.status === "queued") return "GitHub Actions queued. Waiting for a runner...";
+  if (run.status === "in_progress") return "Model is running in GitHub Actions...";
+  if (run.status === "completed" && run.conclusion === "success") return "Model run complete. Waiting for output files/event name to update...";
+  if (run.status === "completed") return `Model run finished with status: ${run.conclusion || "unknown"}.`;
+  return `GitHub Actions status: ${run.status}.`;
+}
+
+function runProgressPct(progress: ModelRunProgress | null, startedAt: string | null) {
+  if (!startedAt) return 0;
+  if (progress?.output?.updatedForRequest) return 100;
+  const run = progress?.run;
+  if (!run || !run.isCurrentRequest) return 15;
+  if (run.status === "queued") return 25;
+  if (run.status === "in_progress") return 55;
+  if (run.status === "completed" && run.conclusion === "success") return 85;
+  if (run.status === "completed") return 100;
+  return 35;
+}
+
 function isSettledHomeBet(b: NonNullable<HomeSummary["weeklyPlaced"]>[number]) {
   const status = (b.liveStatus || "").toLowerCase();
   return status === "won" || status === "lost" || status === "push" || status.includes("settled");
@@ -100,6 +153,9 @@ export default function HomePage() {
   const [running, setRunning] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [runStartedAt, setRunStartedAt] = useState<string | null>(null);
+  const [runProgress, setRunProgress] = useState<ModelRunProgress | null>(null);
+  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function load() {
     setLoading(true);
@@ -116,19 +172,56 @@ export default function HomePage() {
     }
   }
 
+  async function pollModelProgress(startedAt: string, attempt = 0) {
+    try {
+      const res = await fetch(`/api/run-model?tour=${tour}&since=${encodeURIComponent(startedAt)}&t=${Date.now()}`, { cache: "no-store" });
+      const json = (await res.json()) as ModelRunProgress;
+      if (!res.ok || !json.ok) throw new Error(json.error || "Failed to check model progress");
+      setRunProgress(json);
+      setStatus(runProgressMessage(json, startedAt));
+
+      if (json.output?.updatedForRequest) {
+        setRunning(false);
+        await load();
+        return;
+      }
+
+      const run = json.run;
+      if (run?.isCurrentRequest && run.status === "completed" && run.conclusion && run.conclusion !== "success") {
+        setRunning(false);
+        setError(`Model run failed: ${run.conclusion}. Open the GitHub Actions link for logs.`);
+        return;
+      }
+
+      if (attempt < 90) {
+        pollTimer.current = setTimeout(() => pollModelProgress(startedAt, attempt + 1), 10000);
+      } else {
+        setRunning(false);
+        setStatus("Stopped polling after 15 minutes. The run may still finish in GitHub Actions.");
+      }
+    } catch (e: any) {
+      setError(e?.message ?? "Failed to check model progress");
+      setRunning(false);
+    }
+  }
+
   async function runModel() {
+    if (pollTimer.current) clearTimeout(pollTimer.current);
+    const startedAt = new Date().toISOString();
     setRunning(true);
+    setRunStartedAt(startedAt);
+    setRunProgress(null);
     setError(null);
     setStatus("Dispatching model run...");
     try {
       const res = await fetch("/api/run-model", { method: "POST" });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json?.error || "Failed to run model");
-      setStatus("Model run started in GitHub Actions. Refresh this page after the run completes.");
+      setStatus("Model run dispatched. Checking GitHub Actions...");
+      pollTimer.current = setTimeout(() => pollModelProgress(startedAt), 5000);
     } catch (e: any) {
       setError(e?.message ?? "Unknown error");
       setStatus("");
-    } finally {
       setRunning(false);
     }
   }
@@ -137,6 +230,12 @@ export default function HomePage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tour]);
+
+  useEffect(() => {
+    return () => {
+      if (pollTimer.current) clearTimeout(pollTimer.current);
+    };
+  }, []);
 
   const ytd = data?.ytd;
   const weekly = useMemo(() => {
@@ -167,7 +266,32 @@ export default function HomePage() {
           <Button onClick={runModel} disabled={running}>{running ? "Starting..." : "Run Model"}</Button>
         </div>
 
-        {status && <div style={{ marginTop: 12, color: "var(--gb-muted)" }}>{status}</div>}
+        {(status || runStartedAt) && (
+          <Card>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 8 }}>
+              <b>Model Refresh</b>
+              <span style={{ color: "var(--gb-muted)", fontSize: 13 }}>
+                {runStartedAt ? `Started ${new Date(runStartedAt).toLocaleTimeString()}` : "Not started"}
+              </span>
+            </div>
+            <div style={{ color: "var(--gb-muted)", marginBottom: 10 }}>{status || runProgressMessage(runProgress, runStartedAt)}</div>
+            <div style={{ height: 9, background: "var(--gb-border-soft)", borderRadius: 999, overflow: "hidden" }}>
+              <div
+                style={{
+                  width: `${runProgressPct(runProgress, runStartedAt)}%`,
+                  height: "100%",
+                  background: runProgress?.run?.status === "completed" && runProgress.run.conclusion !== "success" ? "#b42335" : "var(--gb-accent)",
+                  transition: "width 300ms ease",
+                }}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", marginTop: 10, color: "var(--gb-muted)", fontSize: 13 }}>
+              {runProgress?.run?.html_url ? <a href={runProgress.run.html_url} target="_blank" rel="noreferrer">Open GitHub run</a> : <span>GitHub run pending</span>}
+              {runProgress?.output?.runMeta?.runAt ? <span>Latest output: {new Date(runProgress.output.runMeta.runAt).toLocaleString()}</span> : <span>Output timestamp pending</span>}
+              {runProgress?.output?.eventMeta?.eventName ? <span>Output event: {runProgress.output.eventMeta.eventName}</span> : null}
+            </div>
+          </Card>
+        )}
         {error && <pre style={{ marginTop: 12, color: "#b42335", whiteSpace: "pre-wrap" }}>{error}</pre>}
 
         <div style={{ height: 18 }} />
