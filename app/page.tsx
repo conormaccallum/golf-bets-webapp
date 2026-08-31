@@ -24,6 +24,24 @@ type ModelRunProgress = {
   };
 };
 
+type PlayerStat = {
+  name: string;
+  count: number;
+  settled: number;
+  open: number;
+  wins: number;
+  losses: number;
+  pushes: number;
+  stakeUnits: number;
+  returnUnits: number;
+  roi: number | null;
+  winPct: number | null;
+  settlementPct: number | null;
+  avgStakeUnits: number | null;
+  avgOdds: number | null;
+  avgEvPerUnit: number | null;
+};
+
 type HomeSummary = {
   ok?: boolean;
   error?: string;
@@ -38,6 +56,21 @@ type HomeSummary = {
     betsSettled: number;
     betsWon: number;
     betsLost: number;
+    stats?: {
+      totalStakeUnits: number;
+      totalReturnUnits: number;
+      openBets: number;
+      pushes: number;
+      winPct: number | null;
+      settlementPct: number | null;
+      avgStakeUnits: number | null;
+      avgOdds: number | null;
+      avgEvPerUnit: number | null;
+      mostBackedPlayer: PlayerStat | null;
+      bestPlayerByPnl: PlayerStat | null;
+      worstPlayerByPnl: PlayerStat | null;
+      marketBreakdown: PlayerStat[];
+    };
     bestBet: null | {
       market: string;
       playerName: string;
@@ -299,7 +332,7 @@ export default function HomePage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
           <Card><Stat label="YTD P/L (All Tours)" value={`${fmtSigned(ytd?.pnlUnits)}u`} /></Card>
           <Card><Stat label="YTD ROI (All Tours)" value={fmtPct(ytd?.roi)} /></Card>
-          <Card><Stat label="Bets Placed" value={String(ytd?.betsPlaced ?? 0)} /></Card>
+          <ExpandableStatsCard ytd={ytd} />
           <Card><Stat label="Won / Lost" value={`${ytd?.betsWon ?? 0} / ${ytd?.betsLost ?? 0}`} /></Card>
         </div>
 
@@ -394,6 +427,71 @@ function Stat({ label, value }: { label: string; value: string }) {
       <div style={{ color: "var(--gb-muted)", fontSize: 13, marginBottom: 6 }}>{label}</div>
       <div style={{ fontSize: 26, fontWeight: 850 }}>{value}</div>
     </div>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ minWidth: 120 }}>
+      <div style={{ color: "var(--gb-muted)", fontSize: 12, marginBottom: 3 }}>{label}</div>
+      <div style={{ fontWeight: 800 }}>{value}</div>
+    </div>
+  );
+}
+
+function PlayerStatLine({ label, stat }: { label: string; stat?: PlayerStat | null }) {
+  if (!stat) {
+    return <div style={{ color: "var(--gb-muted)" }}>{label}: -</div>;
+  }
+  return (
+    <div style={{ display: "grid", gap: 2 }}>
+      <b>{label}: {stat.name}</b>
+      <span style={{ color: "var(--gb-muted)" }}>
+        {stat.count} bets, stake {fmt(stat.stakeUnits)}u, P/L {fmtSigned(stat.returnUnits)}u, ROI {fmtPct(stat.roi)}
+      </span>
+    </div>
+  );
+}
+
+function ExpandableStatsCard({ ytd }: { ytd: HomeSummary["ytd"] | undefined }) {
+  const stats = ytd?.stats;
+  return (
+    <Card>
+      <details>
+        <summary style={{ cursor: "pointer", listStyle: "none" }}>
+          <Stat label="Bets Placed" value={String(ytd?.betsPlaced ?? 0)} />
+          <div style={{ color: "var(--gb-muted)", fontSize: 12, marginTop: 6 }}>Open for more stats</div>
+        </summary>
+
+        <div style={{ height: 12 }} />
+        <div style={{ borderTop: "1px solid var(--gb-border-soft)", paddingTop: 12, display: "grid", gap: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 10 }}>
+            <MiniStat label="Total Stake" value={`${fmt(stats?.totalStakeUnits)}u`} />
+            <MiniStat label="Open Bets" value={String(stats?.openBets ?? 0)} />
+            <MiniStat label="Pushes" value={String(stats?.pushes ?? 0)} />
+            <MiniStat label="Win %" value={fmtPct(stats?.winPct)} />
+            <MiniStat label="Avg Stake" value={`${fmt(stats?.avgStakeUnits)}u`} />
+            <MiniStat label="Avg Odds" value={fmt(stats?.avgOdds)} />
+          </div>
+
+          <PlayerStatLine label="Most backed player" stat={stats?.mostBackedPlayer} />
+          <PlayerStatLine label="Best player P/L" stat={stats?.bestPlayerByPnl} />
+          <PlayerStatLine label="Worst player P/L" stat={stats?.worstPlayerByPnl} />
+
+          {(stats?.marketBreakdown?.length ?? 0) > 0 && (
+            <div style={{ display: "grid", gap: 6 }}>
+              <b>Market Breakdown</b>
+              {stats!.marketBreakdown.map((m) => (
+                <div key={m.name} style={{ display: "flex", justifyContent: "space-between", gap: 10, color: "var(--gb-muted)", fontSize: 13 }}>
+                  <span>{m.name}</span>
+                  <span>{m.count} bets | {fmt(m.stakeUnits)}u staked | {fmtSigned(m.returnUnits)}u</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </details>
+    </Card>
   );
 }
 

@@ -90,6 +90,54 @@ function projectedOutcome(liveStatus: string) {
   return "pending";
 }
 
+function betStats(bets: any[]) {
+  const count = bets.length;
+  const settled = bets.filter((b) => b.resultWinFlag !== null && b.resultWinFlag !== undefined);
+  const wins = settled.filter((b) => b.resultWinFlag === 1 && Number(b.returnUnits) !== 0).length;
+  const losses = settled.filter((b) => b.resultWinFlag === 0).length;
+  const pushes = settled.filter((b) => b.resultWinFlag === 1 && Number(b.returnUnits) === 0).length;
+  const stakeUnits = bets.reduce((acc, b) => acc + (Number(b.stakeUnits) || 0), 0);
+  const returnUnits = bets.reduce((acc, b) => acc + (Number(b.returnUnits) || 0), 0);
+  const oddsValues = bets.map((b) => Number(b.marketOddsBestDec)).filter(Number.isFinite);
+  const evValues = bets.map((b) => Number(b.evPerUnit)).filter(Number.isFinite);
+
+  return {
+    count,
+    settled: settled.length,
+    open: count - settled.length,
+    wins,
+    losses,
+    pushes,
+    stakeUnits,
+    returnUnits,
+    roi: stakeUnits > 0 ? returnUnits / stakeUnits : null,
+    winPct: wins + losses > 0 ? wins / (wins + losses) : null,
+    settlementPct: count > 0 ? settled.length / count : null,
+    avgStakeUnits: count > 0 ? stakeUnits / count : null,
+    avgOdds: oddsValues.length > 0 ? oddsValues.reduce((a, b) => a + b, 0) / oddsValues.length : null,
+    avgEvPerUnit: evValues.length > 0 ? evValues.reduce((a, b) => a + b, 0) / evValues.length : null,
+  };
+}
+
+function groupStats<T extends string>(bets: any[], keyFn: (bet: any) => T | null | undefined) {
+  const groups = new Map<T, any[]>();
+  for (const bet of bets) {
+    const key = keyFn(bet);
+    if (!key) continue;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(bet);
+  }
+
+  return [...groups.entries()].map(([name, group]) => ({
+    name,
+    ...betStats(group),
+  }));
+}
+
+function topBy<T>(items: T[], score: (item: T) => number) {
+  return [...items].sort((a, b) => score(b) - score(a))[0] ?? null;
+}
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -117,6 +165,14 @@ export async function GET(req: Request) {
     const best = allBets
       .filter((b) => b.returnUnits !== null && b.returnUnits !== undefined)
       .sort((a, b) => (Number(b.returnUnits) || 0) - (Number(a.returnUnits) || 0))[0] || null;
+    const ytdStats = betStats(allBets);
+    const playerBreakdown = groupStats(allBets, (b) => (b.playerName || "").trim());
+    const marketBreakdown = groupStats(allBets, (b) => (b.betType || "").trim())
+      .sort((a, b) => b.stakeUnits - a.stakeUnits)
+      .slice(0, 6);
+    const mostBackedPlayer = topBy(playerBreakdown, (p) => p.count * 100000 + p.stakeUnits);
+    const bestPlayerByPnl = topBy(playerBreakdown, (p) => p.returnUnits);
+    const worstPlayerByPnl = topBy(playerBreakdown, (p) => -p.returnUnits);
 
     const placedItems = eventId
       ? await prisma.betslipItem.findMany({
@@ -164,7 +220,7 @@ export async function GET(req: Request) {
         market: b.betType,
         playerName: b.playerName,
         dgId: b.dgId,
-        opponents: slip?.opponents ?? null,
+        opponents: b.opponents ?? slip?.opponents ?? null,
         book: b.marketBookBest,
         odds: b.marketOddsBestDec,
         stake: b.stakeUnits,
@@ -246,6 +302,21 @@ export async function GET(req: Request) {
         betsSettled: settled.length,
         betsWon: won,
         betsLost: lost,
+        stats: {
+          totalStakeUnits: ytdStats.stakeUnits,
+          totalReturnUnits: ytdStats.returnUnits,
+          openBets: ytdStats.open,
+          pushes: ytdStats.pushes,
+          winPct: ytdStats.winPct,
+          settlementPct: ytdStats.settlementPct,
+          avgStakeUnits: ytdStats.avgStakeUnits,
+          avgOdds: ytdStats.avgOdds,
+          avgEvPerUnit: ytdStats.avgEvPerUnit,
+          mostBackedPlayer,
+          bestPlayerByPnl,
+          worstPlayerByPnl,
+          marketBreakdown,
+        },
         bestBet: best
           ? {
               market: best.betType,
