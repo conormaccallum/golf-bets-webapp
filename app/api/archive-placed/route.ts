@@ -126,6 +126,7 @@ export async function POST(req: Request) {
           marketBookBest: b.marketBookBest ?? "",
           marketOddsBestDec: b.oddsEnteredDec ?? b.marketOddsBestDec ?? 0,
           stakeUnits: b.stakeUnits ?? 0,
+          opponents: b.opponents ?? null,
           pModel: b.pModel ?? 0,
           edgeProb: b.edgeProb ?? 0,
           evPerUnit: b.evPerUnit ?? 0,

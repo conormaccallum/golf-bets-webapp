@@ -1,0 +1,1 @@
+ALTER TABLE "Bet" ADD COLUMN "opponents" TEXT;

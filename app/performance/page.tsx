@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { getPrisma } from "../../lib/prisma";
 import { HeaderNav } from "../components/ui";
 import ManualSettleButtons from "./ManualSettleButtons";
+import ManualBetForm from "./ManualBetForm";
 import WeekControls from "./WeekControls";
 
 function sum(nums: any[]) {
@@ -53,6 +54,14 @@ export default async function PerformancePage() {
     weeks.flatMap((w) => (w.bets || []).map((b: any) => b?.returnUnits))
   );
 
+  const weekOptions = weeks.map((w: any) => ({
+    id: w.id,
+    label: w.label,
+    eventName: w.eventName,
+    eventYear: w.eventYear,
+    tour: w.tour,
+  }));
+
   return (
     <div style={{ minHeight: "100vh", background: "var(--gb-bg)", color: "var(--gb-text)" }}>
       <HeaderNav />
@@ -65,6 +74,10 @@ export default async function PerformancePage() {
         <div style={{ border: "1px solid var(--gb-border)", borderRadius: 12, padding: 12 }}>
           <b>Overall W/L (units): {overall.toFixed(2)}</b>
         </div>
+
+        <div style={{ height: 16 }} />
+
+        <ManualBetForm weeks={weekOptions} />
 
         <div style={{ height: 16 }} />
 

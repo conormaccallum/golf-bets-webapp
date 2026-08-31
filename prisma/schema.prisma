@@ -37,6 +37,7 @@ model Bet {
   marketBookBest     String?
   marketOddsBestDec  Float?
   stakeUnits         Float?
+  opponents          String?
 
   pModel             Float?
   edgeProb           Float?
