@@ -4,13 +4,15 @@ import React, { useEffect, useMemo, useState } from "react";
 import { HeaderNav, Button } from "../components/ui";
 import { marketCriteria, qualifiesMarketBet } from "@/lib/staking";
 
-type Market = "top10" | "top20" | "make_cut" | "miss_cut";
+type Market = "win" | "top5" | "top10" | "top20" | "make_cut" | "miss_cut";
 type TableData = { headers: string[]; rows: string[][] };
 type RunResponse = {
   ok?: boolean;
   error?: string;
   meta?: { eventId?: string; eventName?: string; eventYear?: number; refreshLockDay?: string };
   tables?: {
+    win?: TableData | null;
+    top5?: TableData | null;
     top10?: TableData | null;
     top20?: TableData | null;
     makeCut?: TableData | null;
@@ -76,6 +78,8 @@ function formatEv(v: number | null): string {
 }
 
 function marketLabel(market: Market): string {
+  if (market === "win") return "Win";
+  if (market === "top5") return "Top 5";
   if (market === "top10") return "Top 10";
   if (market === "top20") return "Top 20";
   if (market === "make_cut") return "Make Cut";
@@ -115,7 +119,11 @@ function buildDisplayRows(raw: TableData | null, market: Market): DisplayRow[] {
   const idxQualified = pickIndex(h, ["strategy_qualified", "bet_flag"]);
 
   const idxModelProb =
-    market === "top10"
+    market === "win"
+      ? pickIndex(h, ["p_model", "win_strategy_prob", "win_prob_anchored", "win_prob_model"])
+      : market === "top5"
+      ? pickIndex(h, ["p_model", "top5_strategy_prob", "top5_prob_anchored", "top5_prob_model"])
+      : market === "top10"
       ? pickIndex(h, ["p_model", "top10_strategy_prob", "top10_prob_anchored", "top10_prob_model"])
       : market === "top20"
       ? pickIndex(h, ["p_model", "top20_strategy_prob", "top20_prob_anchored_dh", "top20_prob_anchored", "top20_prob_model"])
@@ -248,6 +256,8 @@ export default function ValueScreensPage() {
 
   const rawTable = useMemo(() => {
     if (!data?.tables) return null;
+    if (market === "win") return data.tables.win ?? null;
+    if (market === "top5") return data.tables.top5 ?? null;
     if (market === "top10") return data.tables.top10 ?? null;
     if (market === "top20") return data.tables.top20 ?? null;
     if (market === "make_cut") return data.tables.makeCut ?? null;
@@ -350,6 +360,8 @@ export default function ValueScreensPage() {
 
         <div className="gb-control-bar">
           <select value={market} onChange={(e) => setMarket(e.target.value as Market)} className="gb-control" style={{ padding: "8px 10px", borderRadius: 10, border: "1px solid var(--gb-border)", background: "var(--gb-surface)", color: "var(--gb-text)" }}>
+            <option value="win">Win</option>
+            <option value="top5">Top 5</option>
             <option value="top10">Top 10</option>
             <option value="top20">Top 20</option>
             <option value="make_cut">Make Cut</option>

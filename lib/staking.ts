@@ -1,4 +1,4 @@
-export const BANKROLL_UNITS = 500;
+export const BANKROLL_UNITS = 1000;
 export const KELLY_FRACTION = 0.25;
 export const MAX_BET_FRAC = 0.10;
 export const MAX_EVENT_EXPOSURE_FRAC = 1.0;
@@ -8,6 +8,10 @@ export const MIN_EV_PER_UNIT = 0;
 
 
 export const MARKET_BET_CRITERIA: Record<string, { minEv: number; oddsCap: number | null }> = {
+  "win": { minEv: 0.40, oddsCap: 100.0 },
+  "winner": { minEv: 0.40, oddsCap: 100.0 },
+  "top 5": { minEv: 0.40, oddsCap: 10.0 },
+  "top5": { minEv: 0.40, oddsCap: 10.0 },
   "top 10": { minEv: 0.20, oddsCap: 10.0 },
   "top 20": { minEv: 0.25, oddsCap: 10.0 },
   "make cut": { minEv: 0.075, oddsCap: 3.0 },
@@ -31,12 +35,16 @@ export function qualifiesMarketBet(market: string | undefined, evPerUnit: number
 
 export const MARKET_STAKE_MULTIPLIERS = {
   default: 1.0,
+  win: 0.5,
+  top5: 0.5,
   matchup2: 0.5,
   matchup3: 0.4,
 };
 
 export function stakeMultiplierForMarket(market?: string): number {
   const m = (market || "").toLowerCase();
+  if (m === "win" || m.includes("winner")) return MARKET_STAKE_MULTIPLIERS.win;
+  if (m.includes("top 5") || m.includes("top5")) return MARKET_STAKE_MULTIPLIERS.top5;
   if (m.includes("matchup 2")) return MARKET_STAKE_MULTIPLIERS.matchup2;
   if (m.includes("matchup 3")) return MARKET_STAKE_MULTIPLIERS.matchup3;
   return MARKET_STAKE_MULTIPLIERS.default;

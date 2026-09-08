@@ -20,6 +20,8 @@ export async function GET(
   const baseFlat = baseRaw;
 
   const allowed = new Set([
+    "latest_value_win.csv",
+    "latest_value_top5.csv",
     "latest_value_top10.csv",
     "latest_betslip.csv",
     "latest_value_top20.csv",

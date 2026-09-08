@@ -86,6 +86,8 @@ export async function GET(req: Request) {
     }
 
     const markets = [
+      { key: "win", file: "latest_value_win.csv" },
+      { key: "top5", file: "latest_value_top5.csv" },
       { key: "top10", file: "latest_value_top10.csv" },
       { key: "top20", file: "latest_value_top20.csv" },
       { key: "makeCut", file: "latest_value_make_cut.csv" },
@@ -108,6 +110,12 @@ export async function GET(req: Request) {
         const edge = toNumber(r.edge_prob);
         const pModel =
           toNumber(r.p_model) ??
+          toNumber(r.win_strategy_prob) ??
+          toNumber(r.top5_strategy_prob) ??
+          toNumber(r.win_prob_anchored) ??
+          toNumber(r.top5_prob_anchored) ??
+          toNumber(r.win_prob_model) ??
+          toNumber(r.top5_prob_model) ??
           toNumber(r.top10_strategy_prob) ??
           toNumber(r.top20_strategy_prob) ??
           toNumber(r.make_cut_strategy_prob) ??

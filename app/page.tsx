@@ -84,6 +84,7 @@ type HomeSummary = {
   };
   liveError?: string | null;
   liveLastUpdate?: string | null;
+  eventStakeUnits?: number;
   liveProjection?: {
     countedBets: number;
     pendingBets: number;
@@ -332,6 +333,7 @@ export default function HomePage() {
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12 }}>
           <Card><Stat label="YTD P/L (All Tours)" value={`${fmtSigned(ytd?.pnlUnits)}u`} /></Card>
           <Card><Stat label="YTD ROI (All Tours)" value={fmtPct(ytd?.roi)} /></Card>
+          <Card><Stat label="Event Stake" value={`${fmt(data?.eventStakeUnits)}u`} /></Card>
           <ExpandableStatsCard ytd={ytd} />
           <Card><Stat label="Won / Lost" value={`${ytd?.betsWon ?? 0} / ${ytd?.betsLost ?? 0}`} /></Card>
         </div>
@@ -409,6 +411,7 @@ export default function HomePage() {
               }}
             >
               <b style={{ color: "var(--gb-text)" }}>If finished now</b>
+              <span>Event Stake: <b style={{ color: "var(--gb-text)" }}>{fmt(data?.eventStakeUnits)}u</b></span>
               <span>P/L: <b style={{ color: liveProjectionColor(data?.liveProjection?.pnlUnits) }}>{fmtSigned(data?.liveProjection?.pnlUnits)}u</b></span>
               <span>Won/Lost: <b style={{ color: "var(--gb-text)" }}>{data?.liveProjection?.wins ?? 0} / {data?.liveProjection?.losses ?? 0}</b></span>
               <span>Counted: {data?.liveProjection?.countedBets ?? 0}</span>

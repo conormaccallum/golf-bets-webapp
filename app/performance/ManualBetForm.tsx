@@ -11,7 +11,7 @@ type WeekOption = {
   tour: string;
 };
 
-const MARKET_SUGGESTIONS = ["Top 10", "Top 20", "Make Cut", "Miss Cut", "Matchup 2-Ball", "Matchup 3-Ball"];
+const MARKET_SUGGESTIONS = ["Win", "Top 5", "Top 10", "Top 20", "Make Cut", "Miss Cut", "Matchup 2-Ball", "Matchup 3-Ball"];
 
 export default function ManualBetForm({ weeks }: { weeks: WeekOption[] }) {
   const [weekId, setWeekId] = useState(weeks[0]?.id ? String(weeks[0].id) : "");

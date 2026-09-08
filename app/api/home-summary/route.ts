@@ -281,6 +281,7 @@ export async function GET(req: Request) {
     });
 
     const liveProjectionSettled = weeklyPlaced.filter((b) => b.projectedReturnUnits !== null);
+    const eventStakeUnits = weeklyPlaced.reduce((acc, b) => acc + (Number(b.stake) || 0), 0);
     const liveProjection = {
       countedBets: liveProjectionSettled.length,
       pendingBets: weeklyPlaced.length - liveProjectionSettled.length,
@@ -332,6 +333,7 @@ export async function GET(req: Request) {
       },
       liveError: live.error ?? staleLiveMessage,
       liveLastUpdate,
+      eventStakeUnits,
       liveProjection,
       weeklyPlaced,
     });

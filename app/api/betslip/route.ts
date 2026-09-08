@@ -208,6 +208,7 @@ async function recalcPending(tour: string, eventId: string) {
     const p = b.pModel ?? 0;
     const { edge, evPerUnit, kellyFull, kellyFrac, stakeRaw } = computeStakeUnits(p, oddsDec);
     const stakeMult = stakeMultiplierForMarket(b.market);
+    const adjustedKellyFrac = kellyFrac * stakeMult;
     const computedStakeUnits = stakeRaw * stakeMult;
     const manualStake = b.stakeUnitsEntered !== null && b.stakeUnitsEntered !== undefined;
     return {
@@ -215,7 +216,7 @@ async function recalcPending(tour: string, eventId: string) {
       edgeProb: edge,
       evPerUnit,
       kellyFull,
-      kellyFrac,
+      kellyFrac: adjustedKellyFrac,
       stakeUnits: manualStake ? Number(b.stakeUnitsEntered) || 0 : computedStakeUnits,
       manualStake,
     };
@@ -371,6 +372,7 @@ async function syncPendingFromOutputs(tourInput?: string) {
         rec.marketOddsBestDec
       );
       const stakeMult = stakeMultiplierForMarket(rec.market);
+      const adjustedKellyFrac = kellyFrac * stakeMult;
       const cap = BANKROLL_UNITS * MAX_BET_FRAC;
       let stake = rec.stakeUnits ?? stakeRaw * stakeMult;
       if (stake > cap) stake = cap;
@@ -393,7 +395,7 @@ async function syncPendingFromOutputs(tourInput?: string) {
           edgeProb: rec.edgeProb ?? edge,
           evPerUnit: rec.evPerUnit ?? evPerUnit,
           kellyFull: rec.kellyFull ?? kellyFull,
-          kellyFrac: rec.kellyFrac ?? kellyFrac,
+          kellyFrac: rec.kellyFrac ?? adjustedKellyFrac,
           stakeUnits: Number.isFinite(stake) ? stake : 0,
           status: "PENDING",
         },
@@ -418,6 +420,7 @@ async function syncPendingFromOutputs(tourInput?: string) {
       const pForStake = pModel ?? 0;
       const { edge, evPerUnit, kellyFull, kellyFrac, stakeRaw } = computeStakeUnits(pForStake, oddsForStake);
       const stakeMult = stakeMultiplierForMarket(b.market);
+      const adjustedKellyFrac = kellyFrac * stakeMult;
       const cap = BANKROLL_UNITS * MAX_BET_FRAC;
       let stake = b.stakeUnitsEntered ?? rec.stakeUnits ?? stakeRaw * stakeMult;
       if (stake > cap) stake = cap;
@@ -431,7 +434,7 @@ async function syncPendingFromOutputs(tourInput?: string) {
           edgeProb: rec.edgeProb ?? edge,
           evPerUnit: rec.evPerUnit ?? evPerUnit,
           kellyFull: rec.kellyFull ?? kellyFull,
-          kellyFrac: rec.kellyFrac ?? kellyFrac,
+          kellyFrac: rec.kellyFrac ?? adjustedKellyFrac,
           stakeUnits: Number.isFinite(stake) ? stake : 0,
         },
       });
