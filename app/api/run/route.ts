@@ -70,6 +70,19 @@ async function fetchTextFromOutputs(baseRaw: string, tour: string, name: string)
   return res.text();
 }
 
+async function fetchOptionalTextFromOutputs(baseRaw: string, tour: string, name: string): Promise<string> {
+  try {
+    return await fetchTextFromOutputs(baseRaw, tour, name);
+  } catch (e: any) {
+    const message = String(e?.message || "");
+    if (message.includes("(404)")) {
+      console.warn(`Optional output missing: ${name}`);
+      return "";
+    }
+    throw e;
+  }
+}
+
 async function fetchJsonFromOutputs<T>(baseRaw: string, tour: string, name: string): Promise<T> {
   const primary = `${baseRaw}/${tour}/${name}?t=${Date.now()}`;
   const fallback = `${baseRaw}/${name}?t=${Date.now()}`;
@@ -97,8 +110,8 @@ export async function POST(req: Request) {
     const eventMeta = await fetchJsonFromOutputs<any>(baseRaw, tour, "event_meta.json");
 
     const betslipCsv = await fetchTextFromOutputs(baseRaw, tour, "latest_betslip.csv");
-    const winCsv = await fetchTextFromOutputs(baseRaw, tour, "latest_value_win.csv");
-    const top5Csv = await fetchTextFromOutputs(baseRaw, tour, "latest_value_top5.csv");
+    const winCsv = await fetchOptionalTextFromOutputs(baseRaw, tour, "latest_value_win.csv");
+    const top5Csv = await fetchOptionalTextFromOutputs(baseRaw, tour, "latest_value_top5.csv");
     const top10Csv = await fetchTextFromOutputs(baseRaw, tour, "latest_value_top10.csv");
     const top20Csv = await fetchTextFromOutputs(baseRaw, tour, "latest_value_top20.csv");
     const makeCutCsv = await fetchTextFromOutputs(baseRaw, tour, "latest_value_make_cut.csv");
