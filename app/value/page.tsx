@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { HeaderNav, Button } from "../components/ui";
-import { marketCriteria, qualifiesMarketBet } from "@/lib/staking";
+import { isExceptionMarketBet, marketCriteria, qualifiesMarketBet } from "@/lib/staking";
 
 type Market = "win" | "top5" | "top10" | "top20" | "make_cut" | "miss_cut";
 type TableData = { headers: string[]; rows: string[][] };
@@ -35,6 +35,8 @@ type DisplayRow = {
   dgId: string | null;
   marketLabel: string;
   qualified: boolean | null;
+  strategyRule: string | null;
+  stakeMultiplier: number | null;
 };
 
 function toNumber(x: unknown): number | null {
@@ -117,6 +119,8 @@ function buildDisplayRows(raw: TableData | null, market: Market): DisplayRow[] {
   const idxEdge = pickIndex(h, ["edge_prob", "edge"]);
   const idxEv = pickIndex(h, ["ev_per_unit", "ev"]);
   const idxQualified = pickIndex(h, ["strategy_qualified", "bet_flag"]);
+  const idxStrategyRule = pickIndex(h, ["strategy_rule"]);
+  const idxStakeMultiplier = pickIndex(h, ["strategy_stake_multiplier", "stake_multiplier"]);
 
   const idxModelProb =
     market === "win"
@@ -161,6 +165,8 @@ function buildDisplayRows(raw: TableData | null, market: Market): DisplayRow[] {
         dgId: idxDgId >= 0 && r[idxDgId] ? String(r[idxDgId]) : null,
         marketLabel: marketLabel(market),
         qualified,
+        strategyRule: idxStrategyRule >= 0 ? String(r[idxStrategyRule] ?? "") : null,
+        stakeMultiplier: idxStakeMultiplier >= 0 ? toNumber(r[idxStakeMultiplier]) : null,
       };
     })
     .filter((r) => r.playerName)
@@ -454,11 +460,20 @@ export default function ValueScreensPage() {
                   const alreadyPlaced = placedBetslipKeySet.has(uniqueKey);
                   const missingOdds = row.odds === null || !row.book.trim() || row.modelProb === null;
                   const failsCriteria = !qualifiesMarketBet(row.marketLabel, row.evPerUnit, row.odds);
+                  const exceptionBet = row.strategyRule === "high_ev_exception" || isExceptionMarketBet(row.marketLabel, row.evPerUnit, row.odds);
+                  const exceptionMult = row.stakeMultiplier ?? marketCriteria(row.marketLabel)?.exceptionStakeMultiplier ?? null;
                   const isValue = (row.evPerUnit ?? -999) > 0;
                   const metricValue = metricView === "edge" ? formatEdge(row.edge) : formatEv(row.evPerUnit);
                   return (
                     <tr key={rowId + i} style={{ background: i % 2 === 0 ? "var(--gb-bg)" : "var(--gb-row-alt)" }}>
-                      <td data-label="Player" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{row.playerName}</td>
+                      <td data-label="Player" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>
+                        <div>{row.playerName}</div>
+                        {exceptionBet ? (
+                          <div style={{ display: "inline-block", marginTop: 4, padding: "2px 7px", borderRadius: 999, background: "#f2c46d", color: "#3b160f", fontSize: 11, fontWeight: 800 }}>
+                            High-EV exception{exceptionMult ? ` · ${Math.round(exceptionMult * 100)}% Kelly` : ""}
+                          </div>
+                        ) : null}
+                      </td>
                       <td data-label="Odds" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{formatOdds(row.odds)}</td>
                       <td data-label="Book" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{row.book}</td>
                       <td data-label="Market %" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{formatPct(row.marketProb)}</td>

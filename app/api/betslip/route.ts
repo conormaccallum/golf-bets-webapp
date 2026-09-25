@@ -8,7 +8,7 @@ import {
   MIN_EDGE,
   MIN_EV_PER_UNIT,
   MAX_BET_FRAC,
-  stakeMultiplierForMarket,
+  stakeMultiplierForBet,
   qualifiesMarketBet,
   marketCriteria,
 } from "@/lib/staking";
@@ -207,7 +207,7 @@ async function recalcPending(tour: string, eventId: string) {
     const oddsDec = b.oddsEnteredDec ?? b.marketOddsBestDec ?? 0;
     const p = b.pModel ?? 0;
     const { edge, evPerUnit, kellyFull, kellyFrac, stakeRaw } = computeStakeUnits(p, oddsDec);
-    const stakeMult = stakeMultiplierForMarket(b.market);
+    const stakeMult = stakeMultiplierForBet(b.market, evPerUnit, oddsDec);
     const adjustedKellyFrac = kellyFrac * stakeMult;
     const computedStakeUnits = stakeRaw * stakeMult;
     const manualStake = b.stakeUnitsEntered !== null && b.stakeUnitsEntered !== undefined;
@@ -371,7 +371,7 @@ async function syncPendingFromOutputs(tourInput?: string) {
         rec.pModel,
         rec.marketOddsBestDec
       );
-      const stakeMult = stakeMultiplierForMarket(rec.market);
+      const stakeMult = stakeMultiplierForBet(rec.market, rec.evPerUnit ?? evPerUnit, rec.marketOddsBestDec);
       const adjustedKellyFrac = kellyFrac * stakeMult;
       const cap = BANKROLL_UNITS * MAX_BET_FRAC;
       let stake = rec.stakeUnits ?? stakeRaw * stakeMult;
@@ -419,7 +419,7 @@ async function syncPendingFromOutputs(tourInput?: string) {
       const oddsForStake = b.oddsEnteredDec ?? marketOddsBestDec ?? 0;
       const pForStake = pModel ?? 0;
       const { edge, evPerUnit, kellyFull, kellyFrac, stakeRaw } = computeStakeUnits(pForStake, oddsForStake);
-      const stakeMult = stakeMultiplierForMarket(b.market);
+      const stakeMult = stakeMultiplierForBet(b.market, rec.evPerUnit ?? evPerUnit, oddsForStake);
       const adjustedKellyFrac = kellyFrac * stakeMult;
       const cap = BANKROLL_UNITS * MAX_BET_FRAC;
       let stake = b.stakeUnitsEntered ?? rec.stakeUnits ?? stakeRaw * stakeMult;

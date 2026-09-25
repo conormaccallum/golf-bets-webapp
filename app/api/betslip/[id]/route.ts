@@ -5,7 +5,7 @@ import {
   BANKROLL_UNITS,
   MAX_EVENT_EXPOSURE_FRAC,
   MAX_BET_FRAC,
-  stakeMultiplierForMarket,
+  stakeMultiplierForBet,
 } from "@/lib/staking";
 
 function playerKey(dgId: string | null, playerName: string) {
@@ -153,7 +153,7 @@ async function recalcPending(tour: string, eventId: string) {
     const oddsDec = b.oddsEnteredDec ?? b.marketOddsBestDec ?? 0;
     const p = b.pModel ?? 0;
     const { edge, evPerUnit, kellyFull, kellyFrac, stakeRaw } = computeStakeUnits(p, oddsDec);
-    const stakeMult = stakeMultiplierForMarket(b.market);
+    const stakeMult = stakeMultiplierForBet(b.market, evPerUnit, oddsDec);
     const computedStakeUnits = stakeRaw * stakeMult;
     const manualStake = b.stakeUnitsEntered !== null && b.stakeUnitsEntered !== undefined;
     return {

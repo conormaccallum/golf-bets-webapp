@@ -7,20 +7,37 @@ export const MIN_EV_PER_UNIT = 0;
 
 
 
-export const MARKET_BET_CRITERIA: Record<string, { minEv: number; oddsCap: number | null }> = {
+export type MarketBetCriteria = {
+  minEv: number;
+  oddsCap: number | null;
+  exceptionMinEv?: number;
+  exceptionOddsCap?: number;
+  exceptionStakeMultiplier?: number;
+};
+
+export const MARKET_BET_CRITERIA: Record<string, MarketBetCriteria> = {
   "win": { minEv: 0.40, oddsCap: 100.0 },
   "winner": { minEv: 0.40, oddsCap: 100.0 },
-  "top 5": { minEv: 0.40, oddsCap: 10.0 },
-  "top5": { minEv: 0.40, oddsCap: 10.0 },
+  "top 5": { minEv: 0.35, oddsCap: 15.0, exceptionMinEv: 0.60, exceptionOddsCap: 25.0, exceptionStakeMultiplier: 0.25 },
+  "top5": { minEv: 0.35, oddsCap: 15.0, exceptionMinEv: 0.60, exceptionOddsCap: 25.0, exceptionStakeMultiplier: 0.25 },
   "top 10": { minEv: 0.20, oddsCap: 10.0 },
-  "top 20": { minEv: 0.25, oddsCap: 10.0 },
+  "top 20": { minEv: 0.20, oddsCap: 10.0, exceptionMinEv: 0.35, exceptionOddsCap: 15.0, exceptionStakeMultiplier: 0.5 },
+  "top20": { minEv: 0.20, oddsCap: 10.0, exceptionMinEv: 0.35, exceptionOddsCap: 15.0, exceptionStakeMultiplier: 0.5 },
   "make cut": { minEv: 0.075, oddsCap: 3.0 },
   "miss cut": { minEv: 0.15, oddsCap: 10.0 },
 };
 
-export function marketCriteria(market?: string): { minEv: number; oddsCap: number | null } | null {
+export function marketCriteria(market?: string): MarketBetCriteria | null {
   const key = (market || "").trim().toLowerCase();
   return MARKET_BET_CRITERIA[key] ?? null;
+}
+
+export function isExceptionMarketBet(market: string | undefined, evPerUnit: number | null | undefined, oddsDec: number | null | undefined): boolean {
+  const criteria = marketCriteria(market);
+  if (!criteria?.exceptionMinEv || !criteria.exceptionOddsCap || criteria.oddsCap === null) return false;
+  if (evPerUnit === null || evPerUnit === undefined || !Number.isFinite(evPerUnit)) return false;
+  if (oddsDec === null || oddsDec === undefined || !Number.isFinite(oddsDec)) return false;
+  return evPerUnit >= criteria.exceptionMinEv && oddsDec > criteria.oddsCap && oddsDec <= criteria.exceptionOddsCap;
 }
 
 export function qualifiesMarketBet(market: string | undefined, evPerUnit: number | null | undefined, oddsDec: number | null | undefined): boolean {
@@ -28,9 +45,8 @@ export function qualifiesMarketBet(market: string | undefined, evPerUnit: number
   if (!criteria) return false;
   if (evPerUnit === null || evPerUnit === undefined || !Number.isFinite(evPerUnit)) return false;
   if (oddsDec === null || oddsDec === undefined || !Number.isFinite(oddsDec)) return false;
-  if (evPerUnit < criteria.minEv) return false;
-  if (criteria.oddsCap !== null && oddsDec > criteria.oddsCap) return false;
-  return true;
+  const standardOk = evPerUnit >= criteria.minEv && (criteria.oddsCap === null || oddsDec <= criteria.oddsCap);
+  return standardOk || isExceptionMarketBet(market, evPerUnit, oddsDec);
 }
 
 export const MARKET_STAKE_MULTIPLIERS = {
@@ -48,6 +64,14 @@ export function stakeMultiplierForMarket(market?: string): number {
   if (m.includes("matchup 2")) return MARKET_STAKE_MULTIPLIERS.matchup2;
   if (m.includes("matchup 3")) return MARKET_STAKE_MULTIPLIERS.matchup3;
   return MARKET_STAKE_MULTIPLIERS.default;
+}
+
+export function stakeMultiplierForBet(market: string | undefined, evPerUnit: number | null | undefined, oddsDec: number | null | undefined): number {
+  const criteria = marketCriteria(market);
+  if (criteria?.exceptionStakeMultiplier !== undefined && isExceptionMarketBet(market, evPerUnit, oddsDec)) {
+    return criteria.exceptionStakeMultiplier;
+  }
+  return stakeMultiplierForMarket(market);
 }
 
 export function computeStakeUnits(p: number, oddsDec: number): {

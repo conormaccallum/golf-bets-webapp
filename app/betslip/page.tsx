@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Button, HeaderNav } from "../components/ui";
-import { marketCriteria } from "@/lib/staking";
+import { isExceptionMarketBet, marketCriteria } from "@/lib/staking";
 
 type BetslipItem = {
   id: string;
@@ -62,6 +62,7 @@ function criteriaWarning(item: BetslipItem, oddsDec: number | null, evPerUnit: n
   const criteria = marketCriteria(item.market);
   if (!criteria) return null;
   if (oddsDec === null || evPerUnit === null) return "Cannot check criteria until odds and model probability are available.";
+  if (isExceptionMarketBet(item.market, evPerUnit, oddsDec)) return null;
 
   const reasons: string[] = [];
   if (evPerUnit < criteria.minEv) {
@@ -388,6 +389,8 @@ export default function BetslipPage() {
                       : it.oddsEnteredDec ?? it.marketOddsBestDec;
                     const displayEv = calcEv(it.pModel, displayOdds) ?? it.evPerUnit;
                     const warning = criteriaWarning(it, displayOdds, displayEv);
+                    const exceptionBet = isExceptionMarketBet(it.market, displayEv, displayOdds);
+                    const exceptionMult = marketCriteria(it.market)?.exceptionStakeMultiplier ?? null;
                     const evLow = displayEv !== null && displayEv <= 0;
                     const rowBg = warning
                       ? "#302111"
@@ -399,7 +402,12 @@ export default function BetslipPage() {
                     return (
                       <tr key={it.id} style={{ background: rowBg }}>
                         <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>
-                          {it.market}
+                          <div>{it.market}</div>
+                          {exceptionBet ? (
+                            <div style={{ display: "inline-block", marginTop: 4, padding: "2px 7px", borderRadius: 999, background: "#f2c46d", color: "#3b160f", fontSize: 11, fontWeight: 800 }}>
+                              High-EV exception{exceptionMult ? ` · ${Math.round(exceptionMult * 100)}% Kelly` : ""}
+                            </div>
+                          ) : null}
                         </td>
                         <td style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)" }}>
                           {(it.tour || "").toUpperCase() || "PGA"}
