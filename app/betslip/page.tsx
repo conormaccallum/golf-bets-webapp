@@ -71,6 +71,9 @@ function criteriaWarning(item: BetslipItem, oddsDec: number | null, evPerUnit: n
   if (criteria.oddsCap !== null && oddsDec > criteria.oddsCap) {
     reasons.push(`odds ${oddsDec.toFixed(2)} exceed cap ${criteria.oddsCap.toFixed(2)}`);
   }
+  if (criteria.oddsFloor !== undefined && criteria.oddsFloor !== null && oddsDec < criteria.oddsFloor) {
+    reasons.push(`odds ${oddsDec.toFixed(2)} are below floor ${criteria.oddsFloor.toFixed(2)}`);
+  }
   return reasons.length ? `Outside model criteria: ${reasons.join("; ")}.` : null;
 }
 

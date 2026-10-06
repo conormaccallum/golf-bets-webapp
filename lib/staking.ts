@@ -10,6 +10,7 @@ export const MIN_EV_PER_UNIT = 0;
 export type MarketBetCriteria = {
   minEv: number;
   oddsCap: number | null;
+  oddsFloor?: number | null;
   exceptionMinEv?: number;
   exceptionOddsCap?: number;
   exceptionStakeMultiplier?: number;
@@ -25,6 +26,9 @@ export const MARKET_BET_CRITERIA: Record<string, MarketBetCriteria> = {
   "top20": { minEv: 0.20, oddsCap: 10.0, exceptionMinEv: 0.35, exceptionOddsCap: 15.0, exceptionStakeMultiplier: 0.5 },
   "make cut": { minEv: 0.075, oddsCap: 3.0 },
   "miss cut": { minEv: 0.15, oddsCap: 10.0 },
+  "matchup 2-ball": { minEv: 0.075, oddsFloor: 1.60, oddsCap: 2.20 },
+  "matchup 2 ball": { minEv: 0.075, oddsFloor: 1.60, oddsCap: 2.20 },
+  "matchup2": { minEv: 0.075, oddsFloor: 1.60, oddsCap: 2.20 },
 };
 
 export function marketCriteria(market?: string): MarketBetCriteria | null {
@@ -45,7 +49,10 @@ export function qualifiesMarketBet(market: string | undefined, evPerUnit: number
   if (!criteria) return false;
   if (evPerUnit === null || evPerUnit === undefined || !Number.isFinite(evPerUnit)) return false;
   if (oddsDec === null || oddsDec === undefined || !Number.isFinite(oddsDec)) return false;
-  const standardOk = evPerUnit >= criteria.minEv && (criteria.oddsCap === null || oddsDec <= criteria.oddsCap);
+  const standardOk =
+    evPerUnit >= criteria.minEv &&
+    (criteria.oddsCap === null || oddsDec <= criteria.oddsCap) &&
+    (criteria.oddsFloor === undefined || criteria.oddsFloor === null || oddsDec >= criteria.oddsFloor);
   return standardOk || isExceptionMarketBet(market, evPerUnit, oddsDec);
 }
 

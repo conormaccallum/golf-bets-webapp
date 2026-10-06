@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { HeaderNav, Button } from "../components/ui";
 import { isExceptionMarketBet, marketCriteria, qualifiesMarketBet } from "@/lib/staking";
 
-type Market = "win" | "top5" | "top10" | "top20" | "make_cut" | "miss_cut";
+type Market = "win" | "top5" | "top10" | "top20" | "make_cut" | "miss_cut" | "matchup2";
 type TableData = { headers: string[]; rows: string[][] };
 type RunResponse = {
   ok?: boolean;
@@ -86,6 +86,7 @@ function marketLabel(market: Market): string {
   if (market === "top20") return "Top 20";
   if (market === "make_cut") return "Make Cut";
   if (market === "miss_cut") return "Miss Cut";
+  if (market === "matchup2") return "Matchup 2-Ball";
   return "Miss Cut";
 }
 
@@ -133,7 +134,9 @@ function buildDisplayRows(raw: TableData | null, market: Market): DisplayRow[] {
       ? pickIndex(h, ["p_model", "top20_strategy_prob", "top20_prob_anchored_dh", "top20_prob_anchored", "top20_prob_model"])
       : market === "make_cut"
       ? pickIndex(h, ["p_model", "make_cut_strategy_prob", "p_make_cut_anchored", "p_make_cut_model", "p_make_cut"])
-      : pickIndex(h, ["p_model", "miss_cut_strategy_prob", "p_miss_cut_dg", "p_miss_cut_anchored", "p_miss_cut_model", "p_miss_cut"]);
+      : market === "miss_cut"
+      ? pickIndex(h, ["p_model", "miss_cut_strategy_prob", "p_miss_cut_dg", "p_miss_cut_anchored", "p_miss_cut_model", "p_miss_cut"])
+      : pickIndex(h, ["p_model"]);
 
   return raw.rows
     .map((r) => {
@@ -267,6 +270,8 @@ export default function ValueScreensPage() {
     if (market === "top10") return data.tables.top10 ?? null;
     if (market === "top20") return data.tables.top20 ?? null;
     if (market === "make_cut") return data.tables.makeCut ?? null;
+    if (market === "miss_cut") return data.tables.missCut ?? null;
+    if (market === "matchup2") return data.tables.matchup2 ?? null;
     return data.tables.missCut ?? null;
   }, [data, market]);
 
@@ -372,6 +377,7 @@ export default function ValueScreensPage() {
             <option value="top20">Top 20</option>
             <option value="make_cut">Make Cut</option>
             <option value="miss_cut">Miss Cut</option>
+            <option value="matchup2">2-Ball Matchups</option>
           </select>
 
           <input
@@ -474,6 +480,9 @@ export default function ValueScreensPage() {
                           </div>
                         ) : null}
                       </td>
+                      {market === "matchup2" ? (
+                        <td data-label="Opponent" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{row.opponents}</td>
+                      ) : null}
                       <td data-label="Odds" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{formatOdds(row.odds)}</td>
                       <td data-label="Book" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{row.book}</td>
                       <td data-label="Market %" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>{formatPct(row.marketProb)}</td>

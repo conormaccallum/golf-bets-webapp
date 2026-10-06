@@ -287,9 +287,7 @@ async function buildRecommendedBetslipMap(tour: string, eventId: string) {
   const objs = rowsToObjects(headers, rows);
   for (const r of objs) {
     const market = normalizeMarketName(String(r.bet_type || r.market || ""));
-    const marketLower = market.toLowerCase();
-    // Matchups are research/watchlist only for now; never auto-seed them.
-    if (!market || marketLower.includes("matchup")) continue;
+    if (!market) continue;
 
     const playerName = r.player_name || r.player || "";
     if (!playerName) continue;
@@ -502,7 +500,7 @@ export async function POST(req: Request) {
         {
           ok: false,
           error: criteria
-            ? `Bet does not meet model criteria: EV/unit must be >= ${criteria.minEv} and odds must be <= ${criteria.oddsCap}.`
+            ? `Bet does not meet model criteria: EV/unit must be >= ${criteria.minEv}${criteria.oddsFloor ? `, odds must be >= ${criteria.oddsFloor}` : ""}${criteria.oddsCap ? `, and odds must be <= ${criteria.oddsCap}` : ""}.`
             : "Bet market is not part of the active model criteria.",
         },
         { status: 400 }
