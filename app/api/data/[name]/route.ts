@@ -16,8 +16,9 @@ export async function GET(
     if (t === "dp" || t === "dpwt" || t === "euro") return "dp";
     return "pga";
   })();
-  const baseTour = `${baseRaw}/${tour}`;
-  const baseFlat = baseRaw;
+  const isInRunning = name.startsWith("latest_in_running_") || name === "in_running_meta.json";
+  const baseTour = `${baseRaw}/${tour}${isInRunning ? "/in_running" : ""}`;
+  const baseFlat = isInRunning ? baseTour : baseRaw;
 
   const allowed = new Set([
     "latest_value_win.csv",
@@ -32,6 +33,11 @@ export async function GET(
     "latest_value_matchups_2ball.csv",
     "latest_value_matchups_3ball.csv",
     "event_meta.json",
+    "latest_in_running_win.csv",
+    "latest_in_running_top5.csv",
+    "latest_in_running_top10.csv",
+    "latest_in_running_top20.csv",
+    "in_running_meta.json",
   ]);
 
   if (!allowed.has(name)) {

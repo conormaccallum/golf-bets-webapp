@@ -161,6 +161,7 @@ export function HeaderNav() {
       >
         <NavLink href="/">Home</NavLink>
         <NavLink href="/value">Value Screens</NavLink>
+        <NavLink href="/in-running">In Running</NavLink>
         <NavLink href="/betslip">Betslip</NavLink>
         <NavLink href="/performance">Performance</NavLink>
       </nav>

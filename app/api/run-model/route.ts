@@ -13,7 +13,7 @@ async function fetchOutputJson(tour: string, name: string) {
   const primary = `${OUTPUT_BASE}/${tour}/${name}?t=${Date.now()}`;
   const fallback = `${OUTPUT_BASE}/${name}?t=${Date.now()}`;
   let res = await fetch(primary, { cache: "no-store" });
-  if (!res.ok && res.status === 404) {
+  if (!res.ok && res.status === 404 && !name.startsWith("in_running/")) {
     res = await fetch(fallback, { cache: "no-store" });
   }
   if (!res.ok) return null;
@@ -31,11 +31,16 @@ function isAtOrAfter(value: unknown, since: string | null) {
   return Number.isFinite(a) && Number.isFinite(b) && a >= b;
 }
 
-export async function POST() {
+export async function POST(req: Request) {
   try {
+    const body = await req.json().catch(() => ({}));
+    const mode = String(body?.mode || "pre").toLowerCase();
     const token = process.env.GITHUB_ACTIONS_TOKEN;
     const repo = process.env.GITHUB_REPO;
-    const workflow = process.env.GITHUB_WORKFLOW || "run-model.yml";
+    const workflow =
+      mode === "in_running" || mode === "in-running"
+        ? process.env.GITHUB_IN_RUNNING_WORKFLOW || "run-in-running.yml"
+        : process.env.GITHUB_WORKFLOW || "run-model.yml";
     const ref = process.env.GITHUB_REF || "main";
 
     if (!token || !repo) {
@@ -78,8 +83,12 @@ export async function GET(req: Request) {
   try {
     const token = process.env.GITHUB_ACTIONS_TOKEN;
     const repo = process.env.GITHUB_REPO;
-    const workflow = process.env.GITHUB_WORKFLOW || "run-model.yml";
     const urlObj = new URL(req.url);
+    const mode = String(urlObj.searchParams.get("mode") || "pre").toLowerCase();
+    const workflow =
+      mode === "in_running" || mode === "in-running"
+        ? process.env.GITHUB_IN_RUNNING_WORKFLOW || "run-in-running.yml"
+        : process.env.GITHUB_WORKFLOW || "run-model.yml";
     const tour = normalizeTour(urlObj.searchParams.get("tour"));
     const since = urlObj.searchParams.get("since");
 
@@ -106,8 +115,9 @@ export async function GET(req: Request) {
     }
     const json = await res.json();
     const run = json?.workflow_runs?.[0];
-    const outputRunMeta = await fetchOutputJson(tour, "run_meta.json");
-    const outputEventMeta = await fetchOutputJson(tour, "event_meta.json");
+    const inRunning = mode === "in_running" || mode === "in-running";
+    const outputRunMeta = await fetchOutputJson(tour, inRunning ? "in_running/in_running_meta.json" : "run_meta.json");
+    const outputEventMeta = inRunning ? outputRunMeta : await fetchOutputJson(tour, "event_meta.json");
 
     return NextResponse.json({
       ok: true,
