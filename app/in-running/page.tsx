@@ -336,7 +336,7 @@ export default function InRunningPage() {
                   In Running
                 </h1>
                 <p style={{ margin: "16px 0 0", color: "rgba(255,250,243,0.82)", fontSize: "clamp(15px, 2vw, 18px)", lineHeight: 1.5, maxWidth: 720 }}>
-                  A separate live-price workspace using DataGolf in-play probabilities. It does not overwrite the pre-tournament model or the normal betslip.
+                  A separate live-price workspace using DataGolf in-play probabilities. These are research price candidates with no matching historical live backtest. They do not enter the pre-tournament betslip.
                 </p>
               </div>
               <div style={{ minWidth: 260, border: "1px solid rgba(255,250,243,0.18)", borderRadius: 22, padding: 16, background: "rgba(255,250,243,0.10)", backdropFilter: "blur(10px)" }}>
@@ -349,9 +349,9 @@ export default function InRunningPage() {
         </section>
 
         <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12, marginBottom: 14 }}>
-          <StatCard label="Qualified Plays" value={String(qualifiedRows.length)} detail={`${marketLabel(market)} · ${tour.toUpperCase()}`} />
+          <StatCard label="Price Candidates" value={String(qualifiedRows.length)} detail={`${marketLabel(market)} · ${tour.toUpperCase()}`} />
           <StatCard label="Top EV / Unit" value={ev(topEv)} detail={bestRow ? bestRow.playerName : "No rows loaded"} />
-          <StatCard label="Average Qualified EV" value={ev(avgEv)} detail={qualifiedRows.length ? `${qualifiedRows.length} bets passing criteria` : "No qualified bets"} />
+          <StatCard label="Average Candidate EV" value={ev(avgEv)} detail={qualifiedRows.length ? `${qualifiedRows.length} rows passing price filters` : "No qualified bets"} />
           <StatCard label="Market Blend" value={`${Math.round((meta?.marketWeight ?? 0) * 100)}%`} detail="0% means raw DG live probability" />
         </section>
 

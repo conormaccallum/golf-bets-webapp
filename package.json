@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "prebuild": "npm run test:strategy",
+    "test:strategy": "node scripts/check-strategy-manifest.cjs && node scripts/test-strategy-contract.cjs"
   },
   "dependencies": {
     "@prisma/adapter-better-sqlite3": "^7.3.0",

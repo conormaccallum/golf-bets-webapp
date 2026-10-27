@@ -150,7 +150,7 @@ function buildDisplayRows(raw: TableData | null, market: Market): DisplayRow[] {
         evCsv !== null
           ? evCsv
           : modelProb !== null && odds !== null && odds > 1
-          ? modelProb * (odds - 1) - (1 - modelProb)
+          ? modelProb * odds - 1
           : null;
       const qualifiedRaw = idxQualified >= 0 ? String(r[idxQualified] ?? "").trim().toLowerCase() : "";
       const csvQualified = idxQualified >= 0 ? ["true", "1", "yes"].includes(qualifiedRaw) : null;
@@ -424,6 +424,7 @@ export default function ValueScreensPage() {
         </div>
 
         <div style={{ marginBottom: 6, color: "var(--gb-muted)" }}>Event: {eventTitle}</div>
+        {tour === "dp" ? <p role="status" style={{ color: "var(--gb-muted)" }}>DP predictions are for research. The saved PGA backtests do not validate DP recommendations.</p> : null}
         <div style={{ marginBottom: 12, color: "var(--gb-muted)" }}>Showing {filteredRows.length} of {rows.length} rows</div>
 
         {rows.length > 0 && !hasAnyBookOdds && (

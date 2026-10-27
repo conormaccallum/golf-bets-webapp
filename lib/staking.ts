@@ -1,3 +1,5 @@
+import strategyManifest from "./strategy-manifest.json";
+
 export const BANKROLL_UNITS = 1000;
 export const KELLY_FRACTION = 0.25;
 export const MAX_BET_FRAC = 0.10;
@@ -16,20 +18,23 @@ export type MarketBetCriteria = {
   exceptionStakeMultiplier?: number;
 };
 
-export const MARKET_BET_CRITERIA: Record<string, MarketBetCriteria> = {
-  "win": { minEv: 0.40, oddsCap: 100.0 },
-  "winner": { minEv: 0.40, oddsCap: 100.0 },
-  "top 5": { minEv: 0.40, oddsCap: 10.0 },
-  "top5": { minEv: 0.40, oddsCap: 10.0 },
-  "top 10": { minEv: 0.20, oddsCap: 10.0 },
-  "top 20": { minEv: 0.20, oddsCap: 10.0, exceptionMinEv: 0.35, exceptionOddsCap: 15.0, exceptionStakeMultiplier: 0.5 },
-  "top20": { minEv: 0.20, oddsCap: 10.0, exceptionMinEv: 0.35, exceptionOddsCap: 15.0, exceptionStakeMultiplier: 0.5 },
-  "make cut": { minEv: 0.075, oddsCap: 3.0 },
-  "miss cut": { minEv: 0.15, oddsCap: 10.0 },
-  "matchup 2-ball": { minEv: 0.075, oddsFloor: 1.60, oddsCap: 2.20 },
-  "matchup 2 ball": { minEv: 0.075, oddsFloor: 1.60, oddsCap: 2.20 },
-  "matchup2": { minEv: 0.075, oddsFloor: 1.60, oddsCap: 2.20 },
+export const STRATEGY_MANIFEST_ID = strategyManifest.releaseId;
+const strategyAliases: Record<string, keyof typeof strategyManifest.markets> = {
+  win: "win", winner: "win", "top 5": "top_5", top5: "top_5",
+  "top 10": "top_10", top10: "top_10", "top 20": "top_20", top20: "top_20",
+  "make cut": "make_cut", "miss cut": "miss_cut",
+  "matchup 2-ball": "matchup_2ball", "matchup 2 ball": "matchup_2ball", matchup2: "matchup_2ball",
 };
+type SavedMarketSpec = { min_ev: number; odds_cap: number; odds_floor?: number;
+  exception_min_ev?: number; exception_odds_cap?: number; exception_stake_multiplier?: number };
+export const MARKET_BET_CRITERIA: Record<string, MarketBetCriteria> = Object.fromEntries(
+  Object.entries(strategyAliases).map(([alias, key]) => {
+    const spec: SavedMarketSpec = strategyManifest.markets[key];
+    return [alias, { minEv: spec.min_ev, oddsCap: spec.odds_cap,
+      oddsFloor: spec.odds_floor, exceptionMinEv: spec.exception_min_ev,
+      exceptionOddsCap: spec.exception_odds_cap, exceptionStakeMultiplier: spec.exception_stake_multiplier }];
+  })
+);
 
 export function marketCriteria(market?: string): MarketBetCriteria | null {
   const key = (market || "").trim().toLowerCase();
@@ -92,7 +97,7 @@ export function computeStakeUnits(p: number, oddsDec: number): {
   const b = oddsDec - 1;
   const marketProb = 1 / oddsDec;
   const edge = p - marketProb;
-  const evPerUnit = p * b - q;
+  const evPerUnit = p * oddsDec - 1;
   const kellyFull = b > 0 ? (p * (b + 1) - 1) / b : 0;
   const kellyFrac = Math.max(0, Math.min(1, kellyFull * KELLY_FRACTION));
   const stakeRaw = kellyFrac * BANKROLL_UNITS;

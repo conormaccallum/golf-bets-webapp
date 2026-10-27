@@ -1,3 +1,4 @@
+import { validatePublishedModelRow } from "@/lib/model-row";
 import { NextResponse } from "next/server";
 import { getPrisma } from "@/lib/prisma";
 import { parseCsv, rowsToObjects, toNumber } from "@/lib/csv";
@@ -11,6 +12,7 @@ import {
   stakeMultiplierForBet,
   qualifiesMarketBet,
   marketCriteria,
+  STRATEGY_MANIFEST_ID,
 } from "@/lib/staking";
 
 const OUTPUT_BASE = process.env.OUTPUT_BASE_URL || "";
@@ -279,13 +281,16 @@ async function buildRecommendedBetslipMap(tour: string, eventId: string) {
     }
   >();
 
-  if (!res.ok) return map;
+  if (tour !== "pga" || !res.ok) return map;
   const csv = await res.text();
   const { headers, rows } = parseCsv(csv);
   if (headers.length === 0 || rows.length === 0) return map;
 
   const objs = rowsToObjects(headers, rows);
   for (const r of objs) {
+    if (r.strategy_manifest_id !== STRATEGY_MANIFEST_ID) {
+      throw new Error("The recommendation files are updating. Refresh again shortly.");
+    }
     const market = normalizeMarketName(String(r.bet_type || r.market || ""));
     if (!market) continue;
 
@@ -338,6 +343,9 @@ async function syncPendingFromOutputs(tourInput?: string) {
       continue;
     }
     if (!meta?.eventId) continue;
+    if (tour === "pga" && meta.strategyManifestId !== STRATEGY_MANIFEST_ID) {
+      throw new Error("Model outputs are updating. Refresh again after the current strategy run finishes.");
+    }
 
     const eventId = String(meta.eventId);
     const recommendations = await buildRecommendedBetslipMap(tour, eventId);
@@ -489,10 +497,31 @@ export async function POST(req: Request) {
       opponents: body.opponents || null,
     });
 
+    if (tour !== "pga") {
+      return NextResponse.json({ ok: false, error: "DP outputs are research only; PGA backtests do not validate these recommendations." }, { status: 400 });
+    }
+    if (meta.strategyManifestId !== STRATEGY_MANIFEST_ID) {
+      return NextResponse.json({ ok: false, error: "Model outputs are updating. Refresh after the current strategy run finishes." }, { status: 409 });
+    }
+    const screenNames: Record<string, string> = {
+      "Win": "latest_value_win.csv", "Top 5": "latest_value_top5.csv", "Top 10": "latest_value_top10.csv",
+      "Top 20": "latest_value_top20.csv", "Make Cut": "latest_value_make_cut.csv",
+      "Miss Cut": "latest_value_miss_cut.csv", "Matchup 2-Ball": "latest_value_matchups_2ball.csv",
+    };
+    const screenName = screenNames[normalizeMarketName(String(body.market || ""))];
+    if (!screenName) return NextResponse.json({ ok: false, error: "This market is research only." }, { status: 400 });
+    const screenResponse = await fetchFromOutputs(tour, screenName);
+    if (!screenResponse.ok) throw new Error("Current market output is unavailable");
+    const screenTable = parseCsv(await screenResponse.text());
+    const rejection = validatePublishedModelRow(rowsToObjects(screenTable.headers, screenTable.rows), {
+      dgId, playerName: body.playerName, opponents: body.opponents, pModel: body.pModel,
+    });
+    if (rejection) return NextResponse.json({ ok: false, error: rejection.error }, { status: rejection.status });
+
     const marketOddsBestDec = toNumber(body.marketOddsBestDec);
     const pModel = toNumber(body.pModel);
     const evPerUnit = pModel !== null && marketOddsBestDec !== null && marketOddsBestDec > 1
-      ? pModel * (marketOddsBestDec - 1) - (1 - pModel)
+      ? pModel * marketOddsBestDec - 1
       : null;
     if (!qualifiesMarketBet(body.market, evPerUnit, marketOddsBestDec)) {
       const criteria = marketCriteria(body.market);
