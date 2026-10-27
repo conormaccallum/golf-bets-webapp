@@ -9,7 +9,7 @@ type TableData = { headers: string[]; rows: string[][] };
 type RunResponse = {
   ok?: boolean;
   error?: string;
-  meta?: { eventId?: string; eventName?: string; eventYear?: number; refreshLockDay?: string };
+  meta?: { eventId?: string; eventName?: string; eventYear?: number; refreshLockDay?: string; status?: string; reason?: string };
   tables?: {
     win?: TableData | null;
     top5?: TableData | null;
@@ -437,7 +437,7 @@ export default function ValueScreensPage() {
 
         {!rows.length ? (
           <div style={{ border: "1px solid var(--gb-border)", borderRadius: 16, padding: 16 }}>
-            <p style={{ margin: 0 }}>No data loaded.</p>
+            <p role="status" style={{ margin: 0 }}>{data?.meta?.status === "unavailable" ? data.meta.reason || "Current forecasts unavailable." : "No data loaded."}</p>
           </div>
         ) : (
           <div className="gb-table-scroll gb-mobile-card-table">

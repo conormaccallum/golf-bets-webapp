@@ -19,8 +19,8 @@ type ModelRunProgress = {
   } | null;
   output?: {
     updatedForRequest?: boolean;
-    runMeta?: { runAt?: string; eventName?: string; eventYear?: number; tour?: string } | null;
-    eventMeta?: { eventName?: string; eventYear?: number; eventId?: string } | null;
+    runMeta?: { runAt?: string; eventName?: string; eventYear?: number; tour?: string; status?: string; reason?: string } | null;
+    eventMeta?: { eventName?: string; eventYear?: number; eventId?: string; status?: string; reason?: string } | null;
   };
 };
 
@@ -46,7 +46,7 @@ type HomeSummary = {
   ok?: boolean;
   error?: string;
   tour?: string;
-  meta?: { eventId?: string; eventName?: string; eventYear?: number } | null;
+  meta?: { eventId?: string; eventName?: string; eventYear?: number; status?: string; reason?: string } | null;
   ytd?: {
     year: number;
     pnlUnits: number;
@@ -141,6 +141,7 @@ function runProgressMessage(progress: ModelRunProgress | null, startedAt: string
   const run = progress.run;
   const output = progress.output;
   if (output?.updatedForRequest) {
+    if (output.eventMeta?.status === "unavailable") return output.eventMeta.reason || "Current forecasts unavailable.";
     const event = output.eventMeta?.eventName || output.runMeta?.eventName || "latest event";
     return `Outputs updated for ${event}.`;
   }
@@ -299,6 +300,10 @@ export default function HomePage() {
           <Button onClick={load} disabled={loading}>{loading ? "Refreshing..." : "Refresh"}</Button>
           <Button onClick={runModel} disabled={running}>{running ? "Starting..." : "Run Model"}</Button>
         </div>
+
+        {data?.meta?.status === "unavailable" ? (
+          <Card><p role="status" style={{ margin: 0 }}>{data.meta.reason || "Current forecasts unavailable."}</p></Card>
+        ) : null}
 
         {(status || runStartedAt) && (
           <Card>
