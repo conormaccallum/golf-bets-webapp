@@ -19,8 +19,8 @@ export type MarketBetCriteria = {
 export const MARKET_BET_CRITERIA: Record<string, MarketBetCriteria> = {
   "win": { minEv: 0.40, oddsCap: 100.0 },
   "winner": { minEv: 0.40, oddsCap: 100.0 },
-  "top 5": { minEv: 0.35, oddsCap: 15.0, exceptionMinEv: 0.60, exceptionOddsCap: 25.0, exceptionStakeMultiplier: 0.25 },
-  "top5": { minEv: 0.35, oddsCap: 15.0, exceptionMinEv: 0.60, exceptionOddsCap: 25.0, exceptionStakeMultiplier: 0.25 },
+  "top 5": { minEv: 0.40, oddsCap: 10.0 },
+  "top5": { minEv: 0.40, oddsCap: 10.0 },
   "top 10": { minEv: 0.20, oddsCap: 10.0 },
   "top 20": { minEv: 0.20, oddsCap: 10.0, exceptionMinEv: 0.35, exceptionOddsCap: 15.0, exceptionStakeMultiplier: 0.5 },
   "top20": { minEv: 0.20, oddsCap: 10.0, exceptionMinEv: 0.35, exceptionOddsCap: 15.0, exceptionStakeMultiplier: 0.5 },
