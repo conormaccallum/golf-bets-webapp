@@ -9,7 +9,7 @@ type TableData = { headers: string[]; rows: string[][] };
 type RunResponse = {
   ok?: boolean;
   error?: string;
-  meta?: { eventId?: string; eventName?: string; eventYear?: number; refreshLockDay?: string; status?: string; reason?: string };
+  meta?: { eventId?: string; eventName?: string; eventYear?: number; refreshLockDay?: string; status?: string; reason?: string; forecastFallback?: boolean; forecastNote?: string };
   tables?: {
     win?: TableData | null;
     top5?: TableData | null;
@@ -425,6 +425,7 @@ export default function ValueScreensPage() {
 
         <div style={{ marginBottom: 6, color: "var(--gb-muted)" }}>Event: {eventTitle}</div>
         {tour === "dp" ? <p role="status" style={{ color: "var(--gb-muted)" }}>DP predictions are for research. The saved PGA backtests do not validate DP recommendations.</p> : null}
+        {data?.meta?.forecastFallback ? <p role="status" style={{ color: "var(--gb-muted)" }}>{data.meta.forecastNote}</p> : null}
         <div style={{ marginBottom: 12, color: "var(--gb-muted)" }}>Showing {filteredRows.length} of {rows.length} rows</div>
 
         {rows.length > 0 && !hasAnyBookOdds && (
