@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
-  "releaseId": "2026-10-27-all-market-backtest-v4-234a075f935c",
-  "historyTour": "pga",
+  "releaseId": "2026-11-11-shared-tours-v5-acea45bed419",
+  "historyTour": "own tour; DP category fallback to PGA history then current skill",
   "markets": {
     "win": {
-      "id": "pga_win_flat50_b020_ev040_cap100_prior50_v1",
+      "id": "shared_win_flat50_b020_ev040_cap100_prior50_v1",
       "feature": "flat_50",
       "anchor": "p_win_history_fit",
       "beta": 0.2,
@@ -18,7 +18,7 @@
       "source": "top5_win_high_ev_viability"
     },
     "top_5": {
-      "id": "pga_top5_total50_b035_ev040_cap10_prior24_v1",
+      "id": "shared_top5_total50_b035_ev040_cap10_prior24_v1",
       "feature": "sg_total_50",
       "anchor": "p_top5_history_fit",
       "beta": 0.35,
@@ -32,7 +32,7 @@
       "source": "top5_win_high_ev_viability"
     },
     "top_10": {
-      "id": "pga_top10_putt_weighted50_b020_ev020_cap10_prior0_v1",
+      "id": "shared_top10_putt_weighted50_b020_ev020_cap10_prior0_v1",
       "prefix": "top10",
       "feature": "sg_putt_weighted50",
       "anchor": "p_top10_history_fit",
@@ -46,7 +46,7 @@
       "source": "production_strategy_exact / top10_by_skill_fast"
     },
     "top_20": {
-      "id": "pga_top20_ott_weighted50_b010_ev020_cap10_exception035cap15_prior24_v1",
+      "id": "shared_top20_ott_weighted50_b010_ev020_cap10_exception035cap15_prior24_v1",
       "prefix": "top20",
       "feature": "sg_ott_weighted50",
       "anchor": "p_top20_history_fit",
@@ -63,7 +63,7 @@
       "source": "exception_odds_caps / top20_by_skill"
     },
     "make_cut": {
-      "id": "pga_makecut_putt_weighted50_b010_ev0075_cap3_prior0_v1",
+      "id": "shared_makecut_putt_weighted50_b010_ev0075_cap3_prior0_v1",
       "prefix": "make_cut",
       "feature": "sg_putt_weighted50",
       "anchor": "p_make_cut_history_fit",
@@ -77,7 +77,7 @@
       "source": "production_strategy_exact / make_cut_by_skill"
     },
     "miss_cut": {
-      "id": "pga_misscut_dg_baseline_ev015_cap10_v1",
+      "id": "shared_misscut_dg_baseline_ev015_cap10_v1",
       "prefix": "miss_cut",
       "feature": null,
       "anchor": "p_miss_cut_history_fit",
@@ -91,7 +91,7 @@
       "source": "production_strategy_exact / miss_cut_by_skill"
     },
     "matchup_2ball": {
-      "id": "pga_2ball_histfit_combo075_tev10blend010_tail6b010_ev0075_odds160220_prior4_v1",
+      "id": "shared_2ball_histfit_combo075_tev10blend010_tail6b010_ev0075_odds160220_prior4_v1",
       "prefix": "matchup",
       "min_ev": 0.075,
       "odds_floor": 1.6,
@@ -111,5 +111,25 @@
     "matchup_3ball": "Research only; no matching saved backtest",
     "in_running": "DG live price watchlist; no matching saved live backtest"
   },
-  "contentHash": "234a075f935cf0c3dcf18dd540855d70a3e7c4352517803ec2f2112a30e834a4"
+  "contentHash": "acea45bed4193a971f355edbf93ac3032d4b801c8830b2969eaeb4a97ec3a4de",
+  "supportedTours": [
+    "pga",
+    "dp"
+  ],
+  "inputPolicy": {
+    "forecastPreference": [
+      "baseline_history_fit",
+      "baseline_history",
+      "baseline"
+    ],
+    "dpCategoryMean": "own-tour total SG / 4 if category breakdown missing",
+    "dpCategoryFallback": [
+      "own-tour rolling",
+      "PGA rolling",
+      "current skill",
+      "neutral field z-score"
+    ],
+    "matchupHistory": "own-tour events; DP uses PGA if fewer than four own-tour events",
+    "validationEvidence": "saved PGA studies; approximated inputs and DP application are not a separate historical validation"
+  }
 }

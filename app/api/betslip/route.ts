@@ -281,7 +281,7 @@ async function buildRecommendedBetslipMap(tour: string, eventId: string) {
     }
   >();
 
-  if (tour !== "pga" || !res.ok) return map;
+  if (!res.ok) return map;
   const csv = await res.text();
   const { headers, rows } = parseCsv(csv);
   if (headers.length === 0 || rows.length === 0) return map;
@@ -343,7 +343,7 @@ async function syncPendingFromOutputs(tourInput?: string) {
       continue;
     }
     if (!meta?.eventId) continue;
-    if (tour === "pga" && meta.strategyManifestId !== STRATEGY_MANIFEST_ID) {
+    if (meta.strategyManifestId !== STRATEGY_MANIFEST_ID) {
       throw new Error("Model outputs are updating. Refresh again after the current strategy run finishes.");
     }
 
@@ -497,9 +497,6 @@ export async function POST(req: Request) {
       opponents: body.opponents || null,
     });
 
-    if (tour !== "pga") {
-      return NextResponse.json({ ok: false, error: "DP outputs are research only; PGA backtests do not validate these recommendations." }, { status: 400 });
-    }
     if (meta.strategyManifestId !== STRATEGY_MANIFEST_ID) {
       return NextResponse.json({ ok: false, error: "Model outputs are updating. Refresh after the current strategy run finishes." }, { status: 409 });
     }

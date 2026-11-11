@@ -424,7 +424,6 @@ export default function ValueScreensPage() {
         </div>
 
         <div style={{ marginBottom: 6, color: "var(--gb-muted)" }}>Event: {eventTitle}</div>
-        {tour === "dp" ? <p role="status" style={{ color: "var(--gb-muted)" }}>DP predictions are for research. The saved PGA backtests do not validate DP recommendations.</p> : null}
         {data?.meta?.forecastFallback ? <p role="status" style={{ color: "var(--gb-muted)" }}>{data.meta.forecastNote}</p> : null}
         <div style={{ marginBottom: 12, color: "var(--gb-muted)" }}>Showing {filteredRows.length} of {rows.length} rows</div>
 
