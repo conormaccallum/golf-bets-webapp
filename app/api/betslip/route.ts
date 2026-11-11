@@ -488,6 +488,9 @@ export async function POST(req: Request) {
     const dgId = body.dgId !== undefined && body.dgId !== null && body.dgId !== ""
       ? String(body.dgId)
       : null;
+    if (body.eventId != null && String(body.eventId) !== String(meta.eventId)) {
+      return NextResponse.json({ ok: false, error: "The tournament has changed. Refresh the value screen." }, { status: 409 });
+    }
     const uniqueKey = makeUniqueKey({
       tour,
       eventId: meta.eventId,
@@ -532,6 +535,9 @@ export async function POST(req: Request) {
         { status: 400 }
       );
     }
+
+    // Exercise the exact Add validation path without creating a pending entry.
+    if (body.validateOnly === true) return NextResponse.json({ ok: true, validated: true });
 
     const existing = await prisma.betslipItem.findUnique({ where: { uniqueKey } });
     if (existing) {

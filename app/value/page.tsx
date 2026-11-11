@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { HeaderNav, Button } from "../components/ui";
 import { isExceptionMarketBet, marketCriteria, qualifiesMarketBet } from "@/lib/staking";
+import { publishedRowRejection } from "@/lib/model-row";
 
 type Market = "win" | "top5" | "top10" | "top20" | "make_cut" | "miss_cut" | "matchup2";
 type TableData = { headers: string[]; rows: string[][] };
@@ -120,7 +121,6 @@ function buildDisplayRows(raw: TableData | null, market: Market): DisplayRow[] {
   const idxMarketProb = pickIndex(h, ["market_prob_best", "market_prob", "implied_prob"]);
   const idxEdge = pickIndex(h, ["edge_prob", "edge"]);
   const idxEv = pickIndex(h, ["ev_per_unit", "ev"]);
-  const idxQualified = pickIndex(h, ["strategy_qualified", "bet_flag"]);
   const idxStrategyRule = pickIndex(h, ["strategy_rule"]);
   const idxStakeMultiplier = pickIndex(h, ["strategy_stake_multiplier", "stake_multiplier"]);
 
@@ -153,10 +153,10 @@ function buildDisplayRows(raw: TableData | null, market: Market): DisplayRow[] {
           : modelProb !== null && odds !== null && odds > 1
           ? modelProb * odds - 1
           : null;
-      const qualifiedRaw = idxQualified >= 0 ? String(r[idxQualified] ?? "").trim().toLowerCase() : "";
-      const csvQualified = idxQualified >= 0 ? ["true", "1", "yes"].includes(qualifiedRaw) : null;
+      const publishedRow = Object.fromEntries(h.map((name, index) => [name, r[index] ?? ""]));
+      const csvQualified = publishedRowRejection(publishedRow) === null;
       const hardQualified = qualifiesMarketBet(marketLabel(market), evPerUnit, odds);
-      const qualified = csvQualified === null ? hardQualified : csvQualified && hardQualified;
+      const qualified = csvQualified && hardQualified;
       return {
         playerName: idxPlayer >= 0 ? r[idxPlayer] ?? "" : "",
         opponents: idxOpp >= 0 ? r[idxOpp] ?? "" : "",
@@ -344,6 +344,7 @@ export default function ValueScreensPage() {
     try {
       const payload = {
         tour,
+        eventId: data?.meta?.eventId,
         market: row.marketLabel,
         playerName: row.playerName,
         dgId: row.dgId ? Number(row.dgId) : undefined,
@@ -358,7 +359,10 @@ export default function ValueScreensPage() {
         body: JSON.stringify(payload),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json?.error || "Failed to add bet");
+      if (!res.ok) {
+        if (res.status === 400 || res.status === 409) await load(true);
+        throw new Error(json?.error || "Failed to add bet");
+      }
       await load(true);
     } catch (e: any) {
       setError(e?.message ?? "Failed to add bet");

@@ -15,7 +15,7 @@ function load(name) {
   return module.exports;
 }
 const rules = load('staking');
-const { validatePublishedModelRow } = load('model-row');
+const { validatePublishedModelRow, publishedRowRejection } = load('model-row');
 for (const [label, key] of [['Win','win'],['Top 5','top_5'],['Top 10','top_10'],['Top 20','top_20'],['Make Cut','make_cut'],['Miss Cut','miss_cut'],['Matchup 2-Ball','matchup_2ball']]) {
   const spec = manifest.markets[key];
   assert.equal(rules.marketCriteria(label).minEv, spec.min_ev);
@@ -32,6 +32,13 @@ assert.equal(rules.qualifiesMarketBet('Matchup 3-Ball', .9, 2), false);
 const row = { dg_id: '123', player_name: 'Player', opponents: '', p_model: '.25', strategy_qualified: 'True', strategy_manifest_id: manifest.releaseId };
 const pick = { dgId: '123', playerName: 'Player', pModel: .25 };
 assert.equal(validatePublishedModelRow([row], pick), null);
+assert.equal(publishedRowRejection(row), null);
+assert.equal(publishedRowRejection({ ...row, strategy_qualified: ' True ' }), null);
+// Regression: the old screen accepted this flagged row while Add rejected it.
+const staleQualified = { ...row, strategy_manifest_id: 'previous-model' };
+assert.equal(publishedRowRejection(staleQualified).status, 409);
+assert.equal(validatePublishedModelRow([staleQualified], pick).status, 409);
+assert.equal(publishedRowRejection({ ...row, strategy_qualified: 'False' }).status, 400);
 for (const patch of [{ strategy_qualified: 'False' }, { strategy_manifest_id: 'old' }, { opponents: 'Different player' }, { p_model: '' }]) {
   assert.ok(validatePublishedModelRow([{ ...row, ...patch }], pick));
 }

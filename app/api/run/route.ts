@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { STRATEGY_MANIFEST_ID } from "@/lib/staking";
 
 type TableData = { headers: string[]; rows: string[][] };
 const DEFAULT_TOUR = "pga";
@@ -108,6 +109,12 @@ export async function POST(req: Request) {
     const tour = normalizeTour(url.searchParams.get("tour") || DEFAULT_TOUR);
     
     const eventMeta = await fetchJsonFromOutputs<any>(baseRaw, tour, "event_meta.json");
+    if (eventMeta.tour && normalizeTour(eventMeta.tour) !== tour) {
+      return NextResponse.json({ ok: false, error: "The output belongs to a different tour. Refresh again." }, { status: 409 });
+    }
+    if (eventMeta.status !== "unavailable" && eventMeta.strategyManifestId !== STRATEGY_MANIFEST_ID) {
+      return NextResponse.json({ ok: false, error: "Model outputs are updating. Refresh after the current run finishes." }, { status: 409 });
+    }
 
     const betslipCsv = await fetchTextFromOutputs(baseRaw, tour, "latest_betslip.csv");
     const winCsv = await fetchOptionalTextFromOutputs(baseRaw, tour, "latest_value_win.csv");
@@ -118,6 +125,13 @@ export async function POST(req: Request) {
     const missCutCsv = await fetchTextFromOutputs(baseRaw, tour, "latest_value_miss_cut.csv");
     const matchup2Csv = await fetchTextFromOutputs(baseRaw, tour, "latest_value_matchups_2ball.csv");
     const matchup3Csv = await fetchTextFromOutputs(baseRaw, tour, "latest_value_matchups_3ball.csv");
+    for (const csv of [betslipCsv, winCsv, top5Csv, top10Csv, top20Csv, makeCutCsv, missCutCsv, matchup2Csv]) {
+      const table = parseCsv(csv);
+      const releaseIndex = table.headers.indexOf("strategy_manifest_id");
+      if (table.rows.some(row => releaseIndex < 0 || row[releaseIndex]?.trim() !== STRATEGY_MANIFEST_ID)) {
+        return NextResponse.json({ ok: false, error: "The prediction files are updating together. Refresh again shortly." }, { status: 409 });
+      }
+    }
 
     const prisma = getPrisma();
     const betslipItems = await prisma.betslipItem.findMany({
