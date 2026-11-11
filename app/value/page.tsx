@@ -424,6 +424,7 @@ export default function ValueScreensPage() {
         </div>
 
         <div style={{ marginBottom: 6, color: "var(--gb-muted)" }}>Event: {eventTitle}</div>
+        {rows.length > 0 ? <p style={{ color: "var(--gb-muted)" }}>Model: your saved {marketLabel(market)} formula, applied on both tours.</p> : null}
         {data?.meta?.forecastFallback ? <p role="status" style={{ color: "var(--gb-muted)" }}>{data.meta.forecastNote}</p> : null}
         <div style={{ marginBottom: 12, color: "var(--gb-muted)" }}>Showing {filteredRows.length} of {rows.length} rows</div>
 
