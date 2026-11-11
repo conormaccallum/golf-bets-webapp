@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, HeaderNav } from "../components/ui";
 import { isExceptionMarketBet, marketCriteria } from "@/lib/staking";
 
@@ -78,23 +78,34 @@ function criteriaWarning(item: BetslipItem, oddsDec: number | null, evPerUnit: n
 }
 
 export default function BetslipPage() {
-  const [eventMeta, setEventMeta] = useState<EventMeta | null>(null);
-  const [items, setItems] = useState<BetslipItem[]>([]);
+  const [loadedEventMeta, setEventMeta] = useState<EventMeta | null>(null);
+  const [loadedItems, setItems] = useState<BetslipItem[]>([]);
+  const [loadedTour, setLoadedTour] = useState<"pga" | "dp" | null>(null);
+  const loadRequest = useRef(0);
   const [edits, setEdits] = useState<Record<string, { oddsDec: string; book: string; stakeUnits: string }>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [archiving, setArchiving] = useState(false);
   const [tour, setTour] = useState<"pga" | "dp">("pga");
+  const selectedTour = useRef(tour);
+  const eventMeta = loadedTour === tour ? loadedEventMeta : null;
+  const items = loadedTour === tour ? loadedItems : [];
 
   async function load(sync = false, tourOverride?: "pga" | "dp") {
+    const t = tourOverride ?? tour;
+    if (t !== selectedTour.current) return;
+    const request = ++loadRequest.current;
+    setLoadedTour(null);
     setLoading(true);
     setError(null);
     try {
-      const t = tourOverride ?? tour;
       const url = sync ? `/api/betslip?tour=${t}&sync=1` : `/api/betslip?tour=${t}`;
       const res = await fetch(url, { cache: "no-store" });
       const json = await res.json();
-      if (!json.ok) throw new Error(json.error || "Failed to load betslip");
+      if (request !== loadRequest.current) return;
+      if (!res.ok || !json.ok) throw new Error(json.error || "Failed to load betslip");
+      if (json.tour !== t) throw new Error("The response belongs to a different tour. Refresh again.");
+      setLoadedTour(t);
       setEventMeta(json.eventMeta || null);
       setItems(json.items || []);
       setEdits((prev) => {
@@ -116,14 +127,17 @@ export default function BetslipPage() {
         return next;
       });
     } catch (e: any) {
+      if (request !== loadRequest.current) return;
       setError(e?.message || "Failed to load betslip");
     } finally {
-      setLoading(false);
+      if (request === loadRequest.current) setLoading(false);
     }
   }
 
   useEffect(() => {
+    selectedTour.current = tour;
     load();
+    return () => { loadRequest.current++; };
   }, [tour]);
 
   async function saveOdds(id: string) {

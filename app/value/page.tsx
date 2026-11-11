@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { HeaderNav, Button } from "../components/ui";
 import { isExceptionMarketBet, marketCriteria, qualifiesMarketBet } from "@/lib/staking";
 
 type Market = "win" | "top5" | "top10" | "top20" | "make_cut" | "miss_cut" | "matchup2";
 type TableData = { headers: string[]; rows: string[][] };
 type RunResponse = {
+  tour?: "pga" | "dp";
   ok?: boolean;
   error?: string;
   meta?: { eventId?: string; eventName?: string; eventYear?: number; refreshLockDay?: string; status?: string; reason?: string; forecastFallback?: boolean; forecastNote?: string };
@@ -179,7 +180,10 @@ function buildDisplayRows(raw: TableData | null, market: Market): DisplayRow[] {
 export default function ValueScreensPage() {
   const [market, setMarket] = useState<Market>("top10");
   const [tour, setTour] = useState<"pga" | "dp">("pga");
-  const [data, setData] = useState<RunResponse | null>(null);
+  const selectedTour = useRef(tour);
+  const [loadedData, setData] = useState<RunResponse | null>(null);
+  const data = loadedData?.tour === tour ? loadedData : null;
+  const loadRequest = useRef(0);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -211,39 +215,51 @@ export default function ValueScreensPage() {
   }
 
   async function load(ignoreLock = false) {
+    if (tour !== selectedTour.current) return;
     if (locked && !ignoreLock) {
       setStatus("Refresh locked (tournament live)");
       return;
     }
     setLoading(true);
+    const request = ++loadRequest.current;
+    setData(null);
     setError(null);
     setStatus("Loading...");
     try {
       const res = await fetch(`/api/run?tour=${tour}`, { method: "POST" });
       const json = (await res.json()) as RunResponse;
-      if (!json?.ok) throw new Error(json?.error ?? "API error");
+      if (request !== loadRequest.current) return;
+      if (!res.ok || !json?.ok) throw new Error(json?.error ?? "API error");
+      if (json.tour !== tour) throw new Error("The response belongs to a different tour. Refresh again.");
       setData(json);
       setStatus("Loaded");
     } catch (e: any) {
+      if (request !== loadRequest.current) return;
       setError(e?.message ?? "Failed to load");
       setStatus(e?.message ?? "Failed to load");
       setData(null);
     } finally {
-      setLoading(false);
+      if (request === loadRequest.current) setLoading(false);
     }
   }
 
   useEffect(() => {
+    selectedTour.current = tour;
     load(true);
+    return () => { loadRequest.current++; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tour]);
 
   useEffect(() => {
+    let cancelled = false;
+    setLocked(false);
+    setLockMsg(null);
     async function loadLock() {
       try {
         const res = await fetch(`/api/data/event_meta.json?tour=${tour}`, { cache: "no-store" });
         if (!res.ok) return;
         const meta = await res.json();
+        if (cancelled) return;
         const lockDay = String(meta?.refreshLockDay ?? "").toUpperCase();
         const days = ["SUNDAY","MONDAY","TUESDAY","WEDNESDAY","THURSDAY","FRIDAY","SATURDAY"];
         const lockIdx = days.indexOf(lockDay);
@@ -258,6 +274,7 @@ export default function ValueScreensPage() {
       }
     }
     loadLock();
+    return () => { cancelled = true; };
   }, [tour]);
 
   const betslipKeySet = useMemo(() => new Set(data?.betslipKeys ?? []), [data]);
@@ -304,6 +321,7 @@ export default function ValueScreensPage() {
   }, [rows, search, minEv, onlyValue, metricView]);
 
   async function addToBetslip(row: DisplayRow) {
+    if (loading || !data || row.qualified !== true || !qualifiesMarketBet(row.marketLabel, row.evPerUnit, row.odds)) return;
     const rowId = `${row.playerName}|${row.marketLabel}|${row.opponents}`;
     const uniqueKey = makeUniqueKey({
       tour,
@@ -467,7 +485,7 @@ export default function ValueScreensPage() {
                   const alreadyAdded = betslipKeySet.has(uniqueKey);
                   const alreadyPlaced = placedBetslipKeySet.has(uniqueKey);
                   const missingOdds = row.odds === null || !row.book.trim() || row.modelProb === null;
-                  const failsCriteria = !qualifiesMarketBet(row.marketLabel, row.evPerUnit, row.odds);
+                  const failsCriteria = row.qualified !== true || !qualifiesMarketBet(row.marketLabel, row.evPerUnit, row.odds);
                   const exceptionBet = row.strategyRule === "high_ev_exception" || isExceptionMarketBet(row.marketLabel, row.evPerUnit, row.odds);
                   const exceptionMult = row.stakeMultiplier ?? marketCriteria(row.marketLabel)?.exceptionStakeMultiplier ?? null;
                   const isValue = (row.evPerUnit ?? -999) > 0;
@@ -493,7 +511,7 @@ export default function ValueScreensPage() {
                         {metricValue}
                       </td>
                       <td data-label="" style={{ padding: 10, borderBottom: "1px solid var(--gb-border-soft)", whiteSpace: "nowrap" }}>
-                        <Button onClick={() => addToBetslip(row)} disabled={addingId === rowId || alreadyAdded || alreadyPlaced || missingOdds || failsCriteria}>
+                        <Button onClick={() => addToBetslip(row)} disabled={loading || addingId === rowId || alreadyAdded || alreadyPlaced || missingOdds || failsCriteria}>
                           {missingOdds ? "No odds" : failsCriteria ? "Below criteria" : addButtonLabel(rowId, alreadyAdded, alreadyPlaced)}
                         </Button>
                       </td>
